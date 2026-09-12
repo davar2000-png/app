@@ -1015,138 +1015,229 @@ export default function App() {
     };
 
     const doImport = () => {
-      if (data.length === 0) return;
+      if (data.length === 0) {
+        alert('❌ هیچ داده‌ای برای ورود وجود ندارد!');
+        return;
+      }
+      
       const h = headers;
+      console.log('Import headers:', h);
+      console.log('Import data:', data);
+      console.log('Import type:', importType);
       
       if (importType === 'people') {
-        const newPeople: Person[] = data.map(row => {
+        const newPeople: Person[] = [];
+        let skipped = 0;
+        
+        data.forEach((row, index) => {
           const obj: any = {};
-          h.forEach((key, i) => { obj[key] = row[i]; });
-          return {
-            id: generateId(), type: 'customer' as const,
-            name: obj['نام'] || obj['نام و نام خانوادگی'] || obj['Name'] || '',
-            mobile: obj['موبایل'] || obj['تلفن'] || obj['Phone'] || '',
-            nationalId: obj['کد ملی'] || '',
-            job: obj['شغل'] || '',
-            city: obj['شهر'] || '',
-            address: obj['آدرس'] || '',
-            creditor: Number(obj['بستانکار']) || 0,
-            debtor: Number(obj['بدهکار']) || 0,
-            notes: obj['توضیحات'] || '',
-            documents: [], isDeleted: false,
+          h.forEach((key, i) => { obj[key.trim()] = row[i]; });
+          
+          const name = String(obj['نام'] || obj['نام و نام خانوادگی'] || obj['Name'] || '').trim();
+          
+          if (!name) {
+            skipped++;
+            console.warn(`Row ${index + 2}: Skipped - no name`);
+            return;
+          }
+          
+          const person: Person = {
+            id: generateId(),
+            type: 'customer',
+            name: name,
+            mobile: String(obj['موبایل'] || obj['تلفن'] || obj['Phone'] || obj['موبایل '] || '').trim(),
+            nationalId: String(obj['کد ملی'] || obj['کد ملی '] || '').trim(),
+            job: String(obj['شغل'] || obj['شغل '] || '').trim(),
+            city: String(obj['شهر'] || obj['شهر '] || '').trim(),
+            address: String(obj['آدرس'] || obj['آدرس '] || '').trim(),
+            creditor: Number(obj['بستانکار'] || obj['بستانکار '] || 0),
+            debtor: Number(obj['بدهکار'] || obj['بدهکار '] || 0),
+            notes: String(obj['توضیحات'] || obj['توضیحات '] || '').trim(),
+            documents: [],
+            isDeleted: false,
             createdAt: new Date().toISOString(),
           };
-        }).filter(p => p.name);
+          
+          newPeople.push(person);
+        });
+        
+        if (newPeople.length === 0) {
+          alert(`❌ هیچ شخصی وارد نشد!\n${skipped} رکورد به دلیل نبود نام رد شد.\nلطفاً نام ستون‌ها را بررسی کنید.`);
+          return;
+        }
+        
         setPeople(prev => [...newPeople, ...prev]);
         log('CREATE', 'import', generateId(), `ورود ${newPeople.length} شخص از اکسل`);
-        alert(`✅ ${newPeople.length} شخص وارد شد`);
+        alert(`✅ ${newPeople.length} شخص وارد شد${skipped > 0 ? `\n⚠️ ${skipped} رکورد رد شد` : ''}`);
         
       } else if (importType === 'products') {
-        const newProducts: Product[] = data.map(row => {
+        const newProducts: Product[] = [];
+        const newBrands: ProductBrand[] = [];
+        const newModels: ProductModel[] = [];
+        let skipped = 0;
+        
+        data.forEach((row, index) => {
           const obj: any = {};
-          h.forEach((key, i) => { obj[key] = row[i]; });
+          h.forEach((key, i) => { obj[key.trim()] = row[i]; });
           
           // Find or create brand
-          const brandName = obj['برند'] || obj['Brand'] || '';
-          let brand = brands.find(b => b.name === brandName);
+          const brandName = String(obj['برند'] || obj['Brand'] || obj['برند '] || '').trim();
+          let brand = brands.find(b => b.name === brandName) || newBrands.find(b => b.name === brandName);
           if (!brand && brandName) {
             brand = { id: generateId(), categoryId: 'phone', name: brandName };
-            setBrands(prev => [...prev, brand!]);
+            newBrands.push(brand);
           }
           
           // Find or create model
-          const modelName = obj['مدل'] || obj['Model'] || '';
-          let model = models.find(m => m.name === modelName);
+          const modelName = String(obj['مدل'] || obj['Model'] || obj['مدل '] || '').trim();
+          let model = models.find(m => m.name === modelName) || newModels.find(m => m.name === modelName);
           if (!model && modelName && brand) {
             model = { id: generateId(), brandId: brand.id, name: modelName };
-            setModels(prev => [...prev, model!]);
+            newModels.push(model);
+          }
+          
+          const buyPrice = Number(obj['قیمت خرید'] || obj['قیمت خرید '] || obj['Buy Price'] || 0);
+          const sellPrice = Number(obj['قیمت فروش'] || obj['قیمت فروش '] || obj['Sell Price'] || 0);
+          
+          const productName = [brandName, modelName, obj['رنگ'], obj['رم'] && `${obj['رم']}GB`, obj['حافظه'] && `${obj['حافظه']}GB`].filter(Boolean).join(' - ');
+          
+          if (!productName || !buyPrice || !sellPrice) {
+            skipped++;
+            console.warn(`Row ${index + 2}: Skipped - missing required fields`, { productName, buyPrice, sellPrice });
+            return;
           }
           
           const product: Product = {
             id: generateId(),
             code: generateProductCode(),
-            name: [brandName, modelName, obj['رنگ'], obj['رم'] && `${obj['رم']}GB`, obj['حافظه'] && `${obj['حافظه']}GB`].filter(Boolean).join(' - '),
+            name: productName,
             categoryId: 'phone',
             brandId: brand?.id || '',
             modelId: model?.id || '',
-            color: obj['رنگ'] || '',
-            ram: obj['رم'] || '',
-            storage: obj['حافظه'] || '',
-            buyPrice: Number(obj['قیمت خرید']) || 0,
-            sellPrice: Number(obj['قیمت فروش']) || 0,
-            stock: Number(obj['موجودی']) || 0,
-            minStock: Number(obj['حداقل موجودی']) || 0,
-            reorderPoint: Number(obj['نقطه سفارش']) || 0,
+            color: String(obj['رنگ'] || obj['رنگ '] || '').trim(),
+            ram: String(obj['رم'] || obj['رم '] || '').trim(),
+            storage: String(obj['حافظه'] || obj['حافظه '] || '').trim(),
+            buyPrice: buyPrice,
+            sellPrice: sellPrice,
+            stock: Number(obj['موجودی'] || obj['موجودی '] || 0),
+            minStock: Number(obj['حداقل موجودی'] || obj['حداقل موجودی '] || 0),
+            reorderPoint: Number(obj['نقطه سفارش'] || obj['نقطه سفارش '] || 0),
             allowNegativeStock: false,
             hasSerial: false,
             isDeleted: false,
             createdAt: new Date().toISOString(),
           };
-          return product;
-        }).filter(p => p.name && p.buyPrice && p.sellPrice);
+          
+          newProducts.push(product);
+        });
         
+        if (newProducts.length === 0) {
+          alert(`❌ هیچ کالایی وارد نشد!\n${skipped} رکورد به دلیل نبود فیلدهای الزامی رد شد.\nفیلدهای الزامی: نام، برند، مدل، قیمت خرید، قیمت فروش\nلطفاً نام ستون‌ها را بررسی کنید.`);
+          return;
+        }
+        
+        if (newBrands.length > 0) setBrands(prev => [...prev, ...newBrands]);
+        if (newModels.length > 0) setModels(prev => [...prev, ...newModels]);
         setProducts(prev => [...newProducts, ...prev]);
         log('CREATE', 'import', generateId(), `ورود ${newProducts.length} کالا از اکسل`);
-        alert(`✅ ${newProducts.length} کالا وارد شد`);
+        alert(`✅ ${newProducts.length} کالا وارد شد${skipped > 0 ? `\n⚠️ ${skipped} رکورد رد شد` : ''}${newBrands.length > 0 ? `\n🏷️ ${newBrands.length} برند جدید ایجاد شد` : ''}${newModels.length > 0 ? `\n📱 ${newModels.length} مدل جدید ایجاد شد` : ''}`);
         
       } else if (importType === 'cheques') {
-        const newCheques: Cheque[] = data.map(row => {
+        const newCheques: Cheque[] = [];
+        let skipped = 0;
+        
+        data.forEach((row, index) => {
           const obj: any = {};
-          h.forEach((key, i) => { obj[key] = row[i]; });
+          h.forEach((key, i) => { obj[key.trim()] = row[i]; });
+          
+          const chequeNumber = String(obj['شماره چک'] || obj['شماره چک '] || obj['شماره'] || obj['شماره '] || '').trim();
+          const bankName = String(obj['بانک'] || obj['Bank'] || obj['بانک '] || '').trim();
+          const amount = Number(obj['مبلغ'] || obj['مبلغ '] || obj['Amount'] || 0);
+          
+          if (!chequeNumber || !bankName || !amount) {
+            skipped++;
+            console.warn(`Row ${index + 2}: Skipped - missing required fields`, { chequeNumber, bankName, amount });
+            return;
+          }
           
           const cheque: Cheque = {
             id: generateId(),
-            chequeNumber: obj['شماره چک'] || obj['شماره'] || '',
-            bankName: obj['بانک'] || obj['Bank'] || '',
-            amount: Number(obj['مبلغ']) || 0,
-            issuerName: obj['صادرکننده'] || obj['نام صادرکننده'] || '',
-            issuerNationalId: obj['کد ملی صادرکننده'] || '',
-            dueDate: obj['تاریخ سررسید'] || obj['سررسید'] || obj['تاریخ'] || getTodayDate(),
-            type: (obj['نوع'] || 'دریافتی').includes('پرداخت') ? 'paid' : 'received',
+            chequeNumber: chequeNumber,
+            bankName: bankName,
+            amount: amount,
+            issuerName: String(obj['صادرکننده'] || obj['نام صادرکننده'] || obj['صادرکننده '] || '').trim(),
+            issuerNationalId: String(obj['کد ملی صادرکننده'] || obj['کد ملی صادرکننده '] || '').trim(),
+            dueDate: String(obj['تاریخ سررسید'] || obj['سررسید'] || obj['تاریخ'] || obj['تاریخ سررسید '] || getTodayDate()).trim(),
+            type: String(obj['نوع'] || obj['نوع '] || 'دریافتی').includes('پرداخت') ? 'paid' : 'received',
             status: 'pending',
-            description: obj['توضیحات'] || '',
+            description: String(obj['توضیحات'] || obj['توضیحات '] || '').trim(),
             isDeleted: false,
             createdAt: new Date().toISOString(),
           };
-          return cheque;
-        }).filter(c => c.chequeNumber && c.bankName && c.amount);
+          
+          newCheques.push(cheque);
+        });
+        
+        if (newCheques.length === 0) {
+          alert(`❌ هیچ چکی وارد نشد!\n${skipped} رکورد به دلیل نبود فیلدهای الزامی رد شد.\nفیلدهای الزامی: شماره چک، بانک، مبلغ\nلطفاً نام ستون‌ها را بررسی کنید.`);
+          return;
+        }
         
         setCheques(prev => [...newCheques, ...prev]);
         log('CREATE', 'import', generateId(), `ورود ${newCheques.length} چک از اکسل`);
-        alert(`✅ ${newCheques.length} چک وارد شد`);
+        alert(`✅ ${newCheques.length} چک وارد شد${skipped > 0 ? `\n⚠️ ${skipped} رکورد رد شد` : ''}`);
         
       } else if (importType === 'invoices') {
-        const newInvoices: Invoice[] = data.map(row => {
+        const newInvoices: Invoice[] = [];
+        let skipped = 0;
+        
+        data.forEach((row, index) => {
           const obj: any = {};
-          h.forEach((key, i) => { obj[key] = row[i]; });
+          h.forEach((key, i) => { obj[key.trim()] = row[i]; });
+          
+          const total = Number(obj['مبلغ کل'] || obj['مبلغ کل '] || obj['مبلغ'] || obj['مبلغ '] || obj['Total'] || 0);
+          
+          if (!total || total <= 0) {
+            skipped++;
+            console.warn(`Row ${index + 2}: Skipped - no total amount`, { total });
+            return;
+          }
           
           // Find person by name
-          const personName = obj['مشتری'] || obj['تأمین‌کننده'] || obj['شخص'] || '';
+          const personName = String(obj['مشتری'] || obj['تأمین‌کننده'] || obj['شخص'] || obj['مشتری '] || obj['تأمین‌کننده '] || '').trim();
           const person = people.find(p => p.name === personName);
+          
+          const invoiceType = String(obj['نوع'] || obj['نوع '] || 'فروش');
+          const paid = Number(obj['پرداخت شده'] || obj['پرداخت شده '] || obj['Paid'] || total);
           
           const invoice: Invoice = {
             id: generateId(),
-            invoiceNumber: obj['شماره فاکتور'] || obj['شماره'] || generateInvoiceNumber(obj['نوع']?.includes('خرید') ? 'purchase' : 'sale'),
-            type: (obj['نوع'] || 'فروش').includes('خرید') ? 'purchase' : 'sale',
+            invoiceNumber: String(obj['شماره فاکتور'] || obj['شماره فاکتور '] || obj['شماره'] || obj['شماره '] || generateInvoiceNumber(invoiceType.includes('خرید') ? 'purchase' : 'sale')).trim(),
+            type: invoiceType.includes('خرید') ? 'purchase' : 'sale',
             personId: person?.id || '',
             items: [],
-            total: Number(obj['مبلغ کل']) || Number(obj['مبلغ']) || 0,
-            discount: Number(obj['تخفیف']) || 0,
-            paid: Number(obj['پرداخت شده']) || Number(obj['مبلغ کل']) || 0,
-            remaining: 0,
-            paymentType: (obj['نوع پرداخت'] || 'نقدی').includes('اقساط') ? 'installment' : 'cash',
+            total: total,
+            discount: Number(obj['تخفیف'] || obj['تخفیف '] || 0),
+            paid: paid,
+            remaining: total - paid,
+            paymentType: String(obj['نوع پرداخت'] || obj['نوع پرداخت '] || 'نقدی').includes('اقساط') ? 'installment' : 'cash',
             status: 'active',
-            description: obj['توضیحات'] || '',
-            date: obj['تاریخ'] || getTodayDate(),
+            description: String(obj['توضیحات'] || obj['توضیحات '] || '').trim(),
+            date: String(obj['تاریخ'] || obj['تاریخ '] || getTodayDate()).trim(),
             createdAt: new Date().toISOString(),
           };
-          invoice.remaining = invoice.total - invoice.paid;
-          return invoice;
-        }).filter(i => i.total > 0);
+          
+          newInvoices.push(invoice);
+        });
+        
+        if (newInvoices.length === 0) {
+          alert(`❌ هیچ فاکتوری وارد نشد!\n${skipped} رکورد به دلیل نبود مبلغ کل رد شد.\nفیلد الزامی: مبلغ کل\nلطفاً نام ستون‌ها را بررسی کنید.`);
+          return;
+        }
         
         setInvoices(prev => [...newInvoices, ...prev]);
         log('CREATE', 'import', generateId(), `ورود ${newInvoices.length} فاکتور از اکسل`);
-        alert(`✅ ${newInvoices.length} فاکتور وارد شد`);
+        alert(`✅ ${newInvoices.length} فاکتور وارد شد${skipped > 0 ? `\n⚠️ ${skipped} رکورد رد شد` : ''}`);
       }
       
       setData([]); setHeaders([]); setFileName('');
