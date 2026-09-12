@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Product, Customer, Invoice, InvoiceItem, Payment, CustomerGroup, ProductCategory, ProductBrand, ProductModel, ProductColor, Reminder, DailyNote, Check } from './types';
 import { generateId, formatNumber, formatJalaliDate, getTodayJalali, generateInvoiceNumber } from './utils';
+import InventoryManager from './components/InventoryManager';
 
 function useLocalStorage<T>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
   const [storedValue, setStoredValue] = useState<T>(() => {
@@ -348,6 +349,18 @@ export default function App() {
   const renderContent = () => {
     switch (activeSection) {
       case 'dashboard': return <Dashboard />;
+      case 'inventory': return (
+        <InventoryManager
+          categories={categories}
+          brands={brands}
+          models={models}
+          colors={colors}
+          onCategoriesChange={setCategories}
+          onBrandsChange={setBrands}
+          onModelsChange={setModels}
+          onColorsChange={setColors}
+        />
+      );
       case 'invoice-purchase': return <PurchaseInvoiceForm />;
       case 'list-invoices': return <InvoiceList />;
       case 'settings-backup': return <Settings />;
@@ -368,6 +381,7 @@ export default function App() {
           <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
             {[
               { id: 'dashboard', label: 'داشبورد', icon: '🏠' },
+              { id: 'inventory', label: 'کالا و انبار', icon: '🏭' },
               { id: 'invoice-purchase', label: 'فاکتور خرید', icon: '🛒' },
               { id: 'list-invoices', label: 'لیست فاکتورها', icon: '📋' },
               { id: 'settings-backup', label: 'تنظیمات', icon: '⚙️' },
