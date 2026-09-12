@@ -1,7 +1,23 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/webfonts/Vazirmatn-Regular.woff2') format('woff2');
+  font-weight: 400;
+}
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/webfonts/Vazirmatn-Bold.woff2') format('woff2');
+  font-weight: 700;
+}
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/webfonts/Vazirmatn-Medium.woff2') format('woff2');
+  font-weight: 500;
+}
+
 * {
-  font-family: 'Vazirmatn', 'Tahoma', sans-serif;
+  font-family: 'Vazirmatn', system-ui, sans-serif;
 }
 
 body {
@@ -9,11 +25,33 @@ body {
   min-height: 100vh;
 }
 
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #1e293b; }
+::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
+.animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
 
-.animate-fadeIn {
-  animation: fadeIn 0.3s ease-out forwards;
-}
+/* Safe color classes for dynamic usage */
+.bg-emerald-600 { background-color: #059669; }
+.bg-emerald-800 { background-color: #065f46; }
+.bg-rose-600 { background-color: #e11d48; }
+.bg-rose-800 { background-color: #9f1239; }
+.bg-amber-600 { background-color: #d97706; }
+.bg-amber-800 { background-color: #92400e; }
+.bg-violet-600 { background-color: #7c3aed; }
+.bg-violet-800 { background-color: #5b21b6; }
+.bg-blue-600 { background-color: #2563eb; }
+.bg-blue-800 { background-color: #1e40af; }
+.bg-cyan-600 { background-color: #0891b2; }
+.bg-cyan-800 { background-color: #155e75; }
+.bg-teal-600 { background-color: #0d9488; }
+.bg-teal-800 { background-color: #115e59; }
+.bg-orange-600 { background-color: #ea580c; }
+.bg-orange-800 { background-color: #9a3412; }
+.bg-slate-600 { background-color: #475569; }
+.bg-slate-800 { background-color: #1e293b; }
