@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import type { Product, Customer, Invoice, InvoiceItem, Payment, CustomerGroup, ProductCategory, ProductBrand, ProductModel, ProductColor, Reminder, DailyNote, Check } from './types';
-import { generateId, formatNumber, formatJalaliDate, getTodayJalali, generateInvoiceNumber } from './utils';
-import InventoryManager from './components/InventoryManager';
+import type { Product, Customer, Invoice, InvoiceItem, Installment, ProductCategory, ProductBrand, ProductModel, ProductColor } from './types';
+import { generateId, formatNumber, getTodayDate, generateInvoiceNumber, calculateInstallments } from './utils';
 
 function useLocalStorage<T>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
   const [storedValue, setStoredValue] = useState<T>(() => {
@@ -27,25 +26,34 @@ export default function App() {
     { id: 'printer', name: 'پرینتر', icon: '🖨️' },
     { id: 'misc', name: 'متفرقه', icon: '📦' },
   ]);
-  const [brands, setBrands] = useLocalStorage<ProductBrand[]>('brands', []);
+  const [brands, setBrands] = useLocalStorage<ProductBrand[]>('brands', [
+    { id: 'apple', categoryId: 'phone', name: 'Apple' },
+    { id: 'samsung', categoryId: 'phone', name: 'Samsung' },
+    { id: 'xiaomi', categoryId: 'phone', name: 'Xiaomi' },
+    { id: 'hp', categoryId: 'laptop', name: 'HP' },
+    { id: 'dell', categoryId: 'laptop', name: 'Dell' },
+    { id: 'asus', categoryId: 'laptop', name: 'ASUS' },
+    { id: 'lenovo', categoryId: 'laptop', name: 'Lenovo' },
+    { id: 'ps5', categoryId: 'console', name: 'PS5' },
+    { id: 'hp-printer', categoryId: 'printer', name: 'HP' },
+    { id: 'canon', categoryId: 'printer', name: 'Canon' },
+    { id: 'brother', categoryId: 'printer', name: 'Brother' },
+  ]);
   const [models, setModels] = useLocalStorage<ProductModel[]>('models', []);
   const [colors, setColors] = useLocalStorage<ProductColor[]>('colors', [
     { id: 'black', name: 'مشکی', code: '#000000' },
     { id: 'white', name: 'سفید', code: '#ffffff' },
+    { id: 'blue', name: 'آبی', code: '#3b82f6' },
+    { id: 'red', name: 'قرمز', code: '#ef4444' },
   ]);
-  const [customerGroups, setCustomerGroups] = useLocalStorage<CustomerGroup[]>('customerGroups', []);
-  const [reminders, setReminders] = useLocalStorage<Reminder[]>('reminders', []);
-  const [notes, setNotes] = useLocalStorage<DailyNote[]>('notes', []);
-  const [checks, setChecks] = useLocalStorage<Check[]>('checks', []);
   const [activeSection, setActiveSection] = useState('dashboard');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const handleExport = () => {
-    const data = { products, customers, invoices, categories, brands, models, colors, customerGroups, reminders, notes, checks, exportDate: new Date().toISOString() };
+    const data = { products, customers, invoices, categories, brands, models, colors, exportDate: new Date().toISOString() };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `backup-${getTodayJalali()}.json`;
+    a.href = url; a.download = `backup-${getTodayDate()}.json`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
   };
 
@@ -59,17 +67,31 @@ export default function App() {
         if (data.products) setProducts(data.products);
         if (data.customers) setCustomers(data.customers);
         if (data.invoices) setInvoices(data.invoices);
+        if (data.categories) setCategories(data.categories);
+        if (data.brands) setBrands(data.brands);
+        if (data.models) setModels(data.models);
+        if (data.colors) setColors(data.colors);
         alert('✅ داده‌ها بازیابی شدند!');
       } catch { alert('❌ خطا در خواندن فایل'); }
     };
     reader.readAsText(file);
   };
 
+  const getProductName = (p: Product) => {
+    const brand = brands.find(b => b.id === p.brandId);
+    const model = models.find(m => m.id === p.modelId);
+    return [brand?.name, model?.name, p.color, p.ram && `${p.ram}GB`, p.storage && `${p.storage}GB`].filter(Boolean).join(' - ');
+  };
+
+  // Dashboard
   const Dashboard = () => {
-    const todayInvoices = invoices.filter(inv => inv.date === getTodayJalali());
+    const today = getTodayDate();
+    const todayInvoices = invoices.filter(inv => inv.date === today);
     const todaySales = todayInvoices.filter(inv => inv.type === 'sale').reduce((sum, inv) => sum + inv.total, 0);
+    const todayPurchases = todayInvoices.filter(inv => inv.type === 'purchase').reduce((sum, inv) => sum + inv.total, 0);
     const totalDebt = invoices.reduce((sum, inv) => sum + inv.remaining, 0);
-    
+    const lowStockProducts = products.filter(p => p.stock <= p.minStock);
+
     return (
       <div className="space-y-6">
         <h2 className="text-3xl font-bold">🏠 داشبورد</h2>
@@ -79,327 +101,623 @@ export default function App() {
             <p className="text-3xl font-bold mt-2">{formatNumber(todaySales)}</p>
             <p className="text-emerald-200 text-xs">تومان</p>
           </div>
+          <div className="bg-gradient-to-br from-rose-600 to-rose-800 rounded-2xl p-6 text-white">
+            <p className="text-rose-200 text-sm">خرید امروز</p>
+            <p className="text-3xl font-bold mt-2">{formatNumber(todayPurchases)}</p>
+            <p className="text-rose-200 text-xs">تومان</p>
+          </div>
           <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl p-6 text-white">
             <p className="text-blue-200 text-sm">تعداد کالاها</p>
             <p className="text-3xl font-bold mt-2">{products.length}</p>
             <p className="text-blue-200 text-xs">محصول</p>
           </div>
           <div className="bg-gradient-to-br from-violet-600 to-violet-800 rounded-2xl p-6 text-white">
-            <p className="text-violet-200 text-sm">تعداد اشخاص</p>
-            <p className="text-3xl font-bold mt-2">{customers.length}</p>
-            <p className="text-violet-200 text-xs">نفر</p>
-          </div>
-          <div className="bg-gradient-to-br from-rose-600 to-rose-800 rounded-2xl p-6 text-white">
-            <p className="text-rose-200 text-sm">بدهی کل</p>
+            <p className="text-violet-200 text-sm">بدهی کل</p>
             <p className="text-3xl font-bold mt-2">{formatNumber(totalDebt)}</p>
-            <p className="text-rose-200 text-xs">تومان</p>
+            <p className="text-violet-200 text-xs">تومان</p>
           </div>
         </div>
-      </div>
-    );
-  };
 
-  const PurchaseInvoiceForm = () => {
-    const [invoiceNumber, setInvoiceNumber] = useState(generateInvoiceNumber('purchase'));
-    const [supplierId, setSupplierId] = useState('');
-    const [supplierSearch, setSupplierSearch] = useState('');
-    const [showSupplierForm, setShowSupplierForm] = useState(false);
-    const [newSupplierName, setNewSupplierName] = useState('');
-    const [newSupplierPhone, setNewSupplierPhone] = useState('');
-    const [items, setItems] = useState<InvoiceItem[]>([]);
-    const [productSearch, setProductSearch] = useState('');
-    const [selectedProductId, setSelectedProductId] = useState('');
-    const [quantity, setQuantity] = useState(1);
-    const [buyPrice, setBuyPrice] = useState('');
-    const [payments, setPayments] = useState<Payment[]>([]);
-    const [showPaymentForm, setShowPaymentForm] = useState(false);
-    const [paymentMethod, setPaymentMethod] = useState<'cash'|'check'|'transfer'>('cash');
-    const [paymentAmount, setPaymentAmount] = useState('');
-    const [paymentDesc, setPaymentDesc] = useState('');
-
-    const filteredCustomers = customers.filter(c => 
-      !supplierSearch || c.name.includes(supplierSearch) || c.phone.includes(supplierSearch)
-    );
-    const filteredProducts = products.filter(p =>
-      !productSearch || p.name.includes(productSearch) || p.brand.includes(productSearch)
-    );
-
-    const handleAddSupplier = () => {
-      if (!newSupplierName || !newSupplierPhone) return;
-      const newCustomer: Customer = {
-        id: generateId(), name: newSupplierName, phone: newSupplierPhone,
-        documents: [], createdAt: new Date().toISOString(),
-      };
-      setCustomers(prev => [newCustomer, ...prev]);
-      setSupplierId(newCustomer.id);
-      setShowSupplierForm(false);
-      setNewSupplierName(''); setNewSupplierPhone('');
-    };
-
-    const handleAddItem = () => {
-      if (!selectedProductId) return;
-      const product = products.find(p => p.id === selectedProductId);
-      if (!product) return;
-      const price = Number(buyPrice) || product.buyPrice;
-      const item: InvoiceItem = {
-        id: generateId(), productId: product.id, productName: product.name,
-        quantity, buyPrice: price, sellPrice: product.sellPrice, discount: 0, total: price * quantity,
-      };
-      setItems([...items, item]);
-      setSelectedProductId(''); setQuantity(1); setBuyPrice('');
-    };
-
-    const handleAddPayment = () => {
-      if (!paymentAmount) return;
-      const payment: Payment = {
-        id: generateId(), method: paymentMethod, amount: Number(paymentAmount),
-        date: new Date().toISOString(), description: paymentDesc,
-      };
-      setPayments([...payments, payment]);
-      setPaymentAmount(''); setPaymentDesc(''); setShowPaymentForm(false);
-    };
-
-    const handleSubmit = (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!supplierId || items.length === 0) { alert('طرف حساب و کالا انتخاب کنید'); return; }
-      const supplier = customers.find(c => c.id === supplierId);
-      if (!supplier) return;
-      const subtotal = items.reduce((sum, item) => sum + item.total, 0);
-      const paid = payments.reduce((sum, p) => sum + p.amount, 0);
-      const invoice: Invoice = {
-        id: generateId(), invoiceNumber, type: 'purchase', date: getTodayJalali(),
-        personId: supplierId, personName: supplier.name, items, subtotal, discount: 0, tax: 0,
-        total: subtotal, paid, remaining: subtotal - paid, payments,
-        status: subtotal - paid === 0 ? 'completed' : paid > 0 ? 'partial' : 'pending',
-        deliveryStatus: 'pending', createdAt: new Date().toISOString(),
-      };
-      setInvoices(prev => [invoice, ...prev]);
-      alert(`✅ فاکتور ${invoiceNumber} ثبت شد`);
-      setItems([]); setPayments([]); setSupplierId('');
-      setInvoiceNumber(generateInvoiceNumber('purchase'));
-    };
-
-    return (
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="bg-slate-800/60 rounded-2xl p-6 border border-slate-700/50">
-          <h3 className="text-2xl font-bold mb-4">🛒 فاکتور خرید</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <div>
-              <label className="block text-slate-300 text-sm mb-2">تاریخ (شمسی)</label>
-              <input type="text" value={getTodayJalali()} disabled className="w-full bg-slate-700/30 rounded-xl px-4 py-3 text-white" />
-            </div>
-            <div>
-              <label className="block text-slate-300 text-sm mb-2">شماره فاکتور</label>
-              <input type="text" value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-4 py-3 text-white" />
-            </div>
-            <div>
-              <label className="block text-slate-300 text-sm mb-2">وضعیت دریافت</label>
-              <input type="text" value="دریافت نشده ⏳" disabled className="w-full bg-amber-500/20 border border-amber-500/30 rounded-xl px-4 py-3 text-amber-400 font-bold" />
+        {lowStockProducts.length > 0 && (
+          <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-4">
+            <h3 className="text-rose-400 font-bold mb-2">⚠️ کالاهای با موجودی کم</h3>
+            <div className="space-y-2">
+              {lowStockProducts.slice(0, 5).map(p => (
+                <div key={p.id} className="flex justify-between text-sm">
+                  <span className="text-white">{getProductName(p)}</span>
+                  <span className="text-rose-400">موجودی: {p.stock}</span>
+                </div>
+              ))}
             </div>
           </div>
-
-          <div className="bg-slate-700/30 rounded-xl p-4 mb-4">
-            <div className="flex justify-between mb-3">
-              <h4 className="text-white font-bold">👤 طرف حساب</h4>
-              <button type="button" onClick={() => setShowSupplierForm(!showSupplierForm)} className="px-3 py-1 bg-blue-600 text-white rounded-lg text-sm">+ جدید</button>
-            </div>
-            {showSupplierForm && (
-              <div className="bg-slate-700/50 rounded-xl p-3 mb-3 space-y-2">
-                <input type="text" value={newSupplierName} onChange={e => setNewSupplierName(e.target.value)} placeholder="نام *" className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white" />
-                <input type="tel" value={newSupplierPhone} onChange={e => setNewSupplierPhone(e.target.value)} placeholder="تلفن *" className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white" />
-                <button type="button" onClick={handleAddSupplier} className="w-full bg-emerald-600 text-white py-2 rounded-lg">✓ ثبت</button>
-              </div>
-            )}
-            <input type="text" value={supplierSearch} onChange={e => setSupplierSearch(e.target.value)} placeholder="🔍 جستجوی فروشنده..." className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-4 py-3 text-white mb-2" />
-            <select value={supplierId} onChange={e => setSupplierId(e.target.value)} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-4 py-3 text-white" required>
-              <option value="">انتخاب...</option>
-              {filteredCustomers.map(c => <option key={c.id} value={c.id}>{c.name} - {c.phone}</option>)}
-            </select>
-          </div>
-
-          <div className="bg-slate-700/30 rounded-xl p-4 mb-4">
-            <h4 className="text-white font-bold mb-3">➕ افزودن کالا</h4>
-            <input type="text" value={productSearch} onChange={e => setProductSearch(e.target.value)} placeholder="🔍 جستجوی کالا..." className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-4 py-3 text-white mb-3" />
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-              <select value={selectedProductId} onChange={e => { setSelectedProductId(e.target.value); const p = products.find(pr => pr.id === e.target.value); if (p) setBuyPrice(p.buyPrice.toString()); }} className="md:col-span-2 bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white">
-                <option value="">انتخاب کالا...</option>
-                {filteredProducts.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-              <input type="number" value={quantity} onChange={e => setQuantity(Number(e.target.value))} min="1" placeholder="تعداد" className="bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white" />
-              <input type="number" value={buyPrice} onChange={e => setBuyPrice(e.target.value)} placeholder="قیمت" className="bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white" />
-            </div>
-            <button type="button" onClick={handleAddItem} className="mt-3 w-full bg-blue-600 text-white py-2 rounded-lg">➕ افزودن</button>
-          </div>
-
-          {items.length > 0 && (
-            <div className="bg-slate-700/30 rounded-xl p-4 mb-4">
-              <h4 className="text-white font-bold mb-3">📋 اقلام فاکتور</h4>
-              <table className="w-full text-sm">
-                <thead className="bg-slate-700/50"><tr><th className="px-3 py-2 text-right">کالا</th><th className="px-3 py-2 text-right">تعداد</th><th className="px-3 py-2 text-right">قیمت</th><th className="px-3 py-2 text-right">جمع</th><th className="px-3 py-2">حذف</th></tr></thead>
-                <tbody className="divide-y divide-slate-700/50">
-                  {items.map(item => (
-                    <tr key={item.id}>
-                      <td className="px-3 py-2 text-white">{item.productName}</td>
-                      <td className="px-3 py-2 text-white">{item.quantity}</td>
-                      <td className="px-3 py-2 text-white">{formatNumber(item.buyPrice)}</td>
-                      <td className="px-3 py-2 text-emerald-400 font-bold">{formatNumber(item.total)}</td>
-                      <td className="px-3 py-2 text-center"><button type="button" onClick={() => setItems(items.filter(i => i.id !== item.id))} className="text-rose-400">🗑️</button></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          <div className="bg-slate-700/30 rounded-xl p-4 mb-4">
-            <div className="flex justify-between mb-3">
-              <h4 className="text-white font-bold">💳 تسویه حساب</h4>
-              <button type="button" onClick={() => setShowPaymentForm(!showPaymentForm)} className="px-3 py-1 bg-blue-600 text-white rounded-lg text-sm">+ افزودن</button>
-            </div>
-            {showPaymentForm && (
-              <div className="bg-slate-700/50 rounded-xl p-3 mb-3 space-y-2">
-                <div className="grid grid-cols-3 gap-2">
-                  <button type="button" onClick={() => setPaymentMethod('cash')} className={`py-2 rounded-lg text-sm ${paymentMethod === 'cash' ? 'bg-emerald-600 text-white' : 'bg-slate-600 text-slate-300'}`}>💵 نقدی</button>
-                  <button type="button" onClick={() => setPaymentMethod('check')} className={`py-2 rounded-lg text-sm ${paymentMethod === 'check' ? 'bg-violet-600 text-white' : 'bg-slate-600 text-slate-300'}`}>📝 چک</button>
-                  <button type="button" onClick={() => setPaymentMethod('transfer')} className={`py-2 rounded-lg text-sm ${paymentMethod === 'transfer' ? 'bg-blue-600 text-white' : 'bg-slate-600 text-slate-300'}`}>🏦 حواله</button>
-                </div>
-                <input type="number" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} placeholder="مبلغ" className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white" />
-                <input type="text" value={paymentDesc} onChange={e => setPaymentDesc(e.target.value)} placeholder="توضیحات" className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white" />
-                <button type="button" onClick={handleAddPayment} className="w-full bg-emerald-600 text-white py-2 rounded-lg">✓ ثبت</button>
-              </div>
-            )}
-            {payments.map(p => (
-              <div key={p.id} className="bg-slate-700/50 rounded-lg p-2 mb-2 flex justify-between">
-                <span className="text-white">{p.method === 'cash' ? '💵' : p.method === 'check' ? '📝' : '🏦'} {formatNumber(p.amount)} {p.description && `- ${p.description}`}</span>
-                <button type="button" onClick={() => setPayments(payments.filter(x => x.id !== p.id))} className="text-rose-400">🗑️</button>
-              </div>
-            ))}
-          </div>
-
-          <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-blue-800 py-3 rounded-xl font-bold text-white">✓ ثبت فاکتور خرید</button>
-        </div>
-      </form>
-    );
-  };
-
-  const InvoiceList = () => {
-    const handleUpdateDelivery = (id: string, status: 'pending'|'received'|'partial') => {
-      setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, deliveryStatus: status, deliveryDate: status === 'received' ? getTodayJalali() : inv.deliveryDate } : inv));
-    };
-
-    return (
-      <div className="space-y-4">
-        <h2 className="text-2xl font-bold">📋 لیست فاکتورها ({invoices.length})</h2>
-        {invoices.length === 0 ? (
-          <div className="text-center py-12 text-slate-400"><span className="text-5xl block mb-4">📄</span>فاکتوری ثبت نشده</div>
-        ) : (
-          invoices.map(inv => (
-            <div key={inv.id} className="bg-slate-800/60 rounded-2xl p-4 border border-slate-700/50">
-              <div className="flex justify-between mb-3">
-                <div>
-                  <h3 className="text-lg font-bold">{inv.invoiceNumber}</h3>
-                  <p className="text-slate-400 text-sm">{inv.personName}</p>
-                  <p className="text-slate-500 text-xs">{inv.date}</p>
-                </div>
-                <div className="text-left">
-                  <p className="text-emerald-400 font-bold text-lg">{formatNumber(inv.total)} تومان</p>
-                  <p className={`text-xs ${inv.status === 'completed' ? 'text-emerald-400' : inv.status === 'partial' ? 'text-amber-400' : 'text-rose-400'}`}>
-                    {inv.status === 'completed' ? '✓ تسویه' : inv.status === 'partial' ? '⏳ جزئی' : '❌ پرداخت نشده'}
-                  </p>
-                </div>
-              </div>
-              {inv.type === 'purchase' && (
-                <div className="bg-slate-700/30 rounded-lg p-3">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-slate-400 text-sm">وضعیت دریافت:</p>
-                      <p className={`font-bold ${inv.deliveryStatus === 'received' ? 'text-emerald-400' : inv.deliveryStatus === 'partial' ? 'text-amber-400' : 'text-rose-400'}`}>
-                        {inv.deliveryStatus === 'received' ? '✓ دریافت شده' : inv.deliveryStatus === 'partial' ? '⏳ جزئی' : '❌ دریافت نشده'}
-                      </p>
-                      {inv.deliveryDate && <p className="text-slate-500 text-xs">تاریخ: {inv.deliveryDate}</p>}
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => handleUpdateDelivery(inv.id, 'received')} className="px-3 py-1 bg-emerald-600 text-white rounded-lg text-sm">✓ دریافت شد</button>
-                      <button onClick={() => handleUpdateDelivery(inv.id, 'partial')} className="px-3 py-1 bg-amber-600 text-white rounded-lg text-sm">⏳ جزئی</button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))
         )}
       </div>
     );
   };
 
+  // Inventory Manager
+  const InventoryManager = () => {
+    const [tab, setTab] = useState<'categories' | 'brands' | 'models' | 'colors' | 'products'>('products');
+    const [newCatName, setNewCatName] = useState('');
+    const [newCatIcon, setNewCatIcon] = useState('📦');
+    const [newBrandName, setNewBrandName] = useState('');
+    const [newBrandCat, setNewBrandCat] = useState('');
+    const [newModelName, setNewModelName] = useState('');
+    const [newModelBrand, setNewModelBrand] = useState('');
+    const [newColorName, setNewColorName] = useState('');
+    const [newColorCode, setNewColorCode] = useState('#000000');
+
+    // Product form
+    const [pCat, setPCat] = useState('');
+    const [pBrand, setPBrand] = useState('');
+    const [pModel, setPModel] = useState('');
+    const [pColor, setPColor] = useState('');
+    const [pRam, setPRam] = useState('');
+    const [pStorage, setPStorage] = useState('');
+    const [pBuy, setPBuy] = useState('');
+    const [pSell, setPSell] = useState('');
+    const [pStock, setPStock] = useState('0');
+    const [pMin, setPMin] = useState('0');
+    const [pReorder, setPReorder] = useState('0');
+    const [pSerials, setPSerials] = useState('');
+    const [pAllowNeg, setPAllowNeg] = useState(false);
+
+    const addProduct = () => {
+      if (!pCat || !pBrand || !pModel || !pBuy || !pSell) return;
+      const brand = brands.find(b => b.id === pBrand);
+      const model = models.find(m => m.id === pModel);
+      const color = colors.find(c => c.id === pColor);
+      const name = [brand?.name, model?.name, color?.name, pRam && `${pRam}GB RAM`, pStorage && `${pStorage}GB`].filter(Boolean).join(' - ');
+      
+      const product: Product = {
+        id: generateId(),
+        code: `PRD-${Date.now()}`,
+        name,
+        categoryId: pCat,
+        brandId: pBrand,
+        modelId: pModel,
+        color: color?.name,
+        ram: pRam,
+        storage: pStorage,
+        buyPrice: Number(pBuy),
+        sellPrice: Number(pSell),
+        stock: Number(pStock),
+        minStock: Number(pMin),
+        reorderPoint: Number(pReorder),
+        allowNegativeStock: pAllowNeg,
+        serialNumbers: pSerials.split('\n').filter(s => s.trim()),
+        createdAt: new Date().toISOString(),
+      };
+      setProducts(prev => [product, ...prev]);
+      setPCat(''); setPBrand(''); setPModel(''); setPColor(''); setPRam(''); setPStorage('');
+      setPBuy(''); setPSell(''); setPStock('0'); setPMin('0'); setPReorder('0'); setPSerials(''); setPAllowNeg(false);
+    };
+
+    const filteredBrands = brands.filter(b => b.categoryId === pCat);
+    const filteredModels = models.filter(m => m.brandId === pBrand);
+
+    return (
+      <div className="space-y-6">
+        <h2 className="text-3xl font-bold">🏭 کالا و انبار</h2>
+        
+        <div className="flex gap-2 flex-wrap border-b border-slate-700 pb-2">
+          {[
+            { id: 'products', label: '➕ ثبت کالا', icon: '📦' },
+            { id: 'categories', label: '📁 گروه‌ها', icon: '📁' },
+            { id: 'brands', label: '🏷️ برندها', icon: '🏷️' },
+            { id: 'models', label: '📱 مدل‌ها', icon: '📱' },
+            { id: 'colors', label: '🎨 رنگ‌ها', icon: '🎨' },
+          ].map(t => (
+            <button key={t.id} onClick={() => setTab(t.id as any)} className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${tab === t.id ? 'bg-blue-600 text-white' : 'bg-slate-700/50 text-slate-300 hover:bg-slate-600'}`}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'products' && (
+          <div className="space-y-6">
+            <div className="bg-slate-800/60 rounded-2xl p-6 border border-slate-700/50">
+              <h3 className="text-xl font-bold mb-4">ثبت کالای جدید</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-slate-300 text-sm mb-1">گروه *</label>
+                  <select value={pCat} onChange={e => { setPCat(e.target.value); setPBrand(''); setPModel(''); }} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white">
+                    <option value="">انتخاب...</option>
+                    {categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-300 text-sm mb-1">برند *</label>
+                  <select value={pBrand} onChange={e => { setPBrand(e.target.value); setPModel(''); }} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" disabled={!pCat}>
+                    <option value="">انتخاب...</option>
+                    {filteredBrands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-300 text-sm mb-1">مدل *</label>
+                  <select value={pModel} onChange={e => setPModel(e.target.value)} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" disabled={!pBrand}>
+                    <option value="">انتخاب...</option>
+                    {filteredModels.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-300 text-sm mb-1">رنگ</label>
+                  <select value={pColor} onChange={e => setPColor(e.target.value)} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white">
+                    <option value="">انتخاب...</option>
+                    {colors.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-300 text-sm mb-1">رم (GB)</label>
+                  <input type="text" value={pRam} onChange={e => setPRam(e.target.value)} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" placeholder="8" />
+                </div>
+                <div>
+                  <label className="block text-slate-300 text-sm mb-1">حافظه (GB)</label>
+                  <input type="text" value={pStorage} onChange={e => setPStorage(e.target.value)} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" placeholder="128" />
+                </div>
+                <div>
+                  <label className="block text-slate-300 text-sm mb-1">قیمت خرید *</label>
+                  <input type="number" value={pBuy} onChange={e => setPBuy(e.target.value)} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+                </div>
+                <div>
+                  <label className="block text-slate-300 text-sm mb-1">قیمت فروش *</label>
+                  <input type="number" value={pSell} onChange={e => setPSell(e.target.value)} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+                </div>
+                <div>
+                  <label className="block text-slate-300 text-sm mb-1">موجودی</label>
+                  <input type="number" value={pStock} onChange={e => setPStock(e.target.value)} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+                </div>
+                <div>
+                  <label className="block text-slate-300 text-sm mb-1">حداقل موجودی</label>
+                  <input type="number" value={pMin} onChange={e => setPMin(e.target.value)} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+                </div>
+                <div>
+                  <label className="block text-slate-300 text-sm mb-1">نقطه سفارش</label>
+                  <input type="number" value={pReorder} onChange={e => setPReorder(e.target.value)} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" id="neg" checked={pAllowNeg} onChange={e => setPAllowNeg(e.target.checked)} className="w-5 h-5" />
+                  <label htmlFor="neg" className="text-slate-300 text-sm">اجازه موجودی منفی</label>
+                </div>
+              </div>
+              <div className="mt-4">
+                <label className="block text-slate-300 text-sm mb-1">شماره سریال‌ها (هر خط یکی)</label>
+                <textarea value={pSerials} onChange={e => setPSerials(e.target.value)} rows={2} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+              </div>
+              <button onClick={addProduct} className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl">✓ ثبت کالا</button>
+            </div>
+
+            {/* لیست کالاها */}
+            <div className="bg-slate-800/60 rounded-2xl p-6 border border-slate-700/50">
+              <h3 className="text-xl font-bold mb-4">لیست کالاها ({products.length})</h3>
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {products.map(p => (
+                  <div key={p.id} className="bg-slate-700/30 rounded-xl p-3 flex justify-between items-center">
+                    <div>
+                      <p className="text-white font-medium">{p.name}</p>
+                      <p className="text-slate-400 text-xs">کد: {p.code} | موجودی: {p.stock}</p>
+                    </div>
+                    <button onClick={() => { if (confirm('حذف؟')) setProducts(prev => prev.filter(x => x.id !== p.id)); }} className="text-rose-400 hover:text-rose-300">🗑️</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === 'categories' && (
+          <div className="bg-slate-800/60 rounded-2xl p-6 border border-slate-700/50">
+            <h3 className="text-xl font-bold mb-4">گروه‌های کالا</h3>
+            <div className="flex gap-2 mb-4">
+              <input type="text" value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="نام گروه" className="flex-1 bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+              <input type="text" value={newCatIcon} onChange={e => setNewCatIcon(e.target.value)} placeholder="📦" className="w-20 bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white text-center text-xl" />
+              <button onClick={() => { if (newCatName) { setCategories([...categories, { id: generateId(), name: newCatName, icon: newCatIcon }]); setNewCatName(''); } }} className="px-4 bg-blue-600 text-white rounded-xl">➕</button>
+            </div>
+            <div className="space-y-2">
+              {categories.map(c => (
+                <div key={c.id} className="bg-slate-700/30 rounded-xl p-3 flex justify-between items-center">
+                  <span className="text-white">{c.icon} {c.name}</span>
+                  <button onClick={() => { if (confirm('حذف؟')) { setCategories(categories.filter(x => x.id !== c.id)); setBrands(brands.filter(b => b.categoryId !== c.id)); } }} className="text-rose-400">🗑️</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {tab === 'brands' && (
+          <div className="bg-slate-800/60 rounded-2xl p-6 border border-slate-700/50">
+            <h3 className="text-xl font-bold mb-4">برندها</h3>
+            <div className="flex gap-2 mb-4">
+              <select value={newBrandCat} onChange={e => setNewBrandCat(e.target.value)} className="flex-1 bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white">
+                <option value="">گروه...</option>
+                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <input type="text" value={newBrandName} onChange={e => setNewBrandName(e.target.value)} placeholder="نام برند" className="flex-1 bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+              <button onClick={() => { if (newBrandCat && newBrandName) { setBrands([...brands, { id: generateId(), categoryId: newBrandCat, name: newBrandName }]); setNewBrandName(''); setNewBrandCat(''); } }} className="px-4 bg-blue-600 text-white rounded-xl">➕</button>
+            </div>
+            <div className="space-y-2">
+              {brands.map(b => {
+                const cat = categories.find(c => c.id === b.categoryId);
+                return (
+                  <div key={b.id} className="bg-slate-700/30 rounded-xl p-3 flex justify-between items-center">
+                    <span className="text-white">{cat?.icon} {b.name} ({cat?.name})</span>
+                    <button onClick={() => { if (confirm('حذف؟')) { setBrands(brands.filter(x => x.id !== b.id)); setModels(models.filter(m => m.brandId !== b.id)); } }} className="text-rose-400">🗑️</button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {tab === 'models' && (
+          <div className="bg-slate-800/60 rounded-2xl p-6 border border-slate-700/50">
+            <h3 className="text-xl font-bold mb-4">مدل‌ها</h3>
+            <div className="flex gap-2 mb-4">
+              <select value={newModelBrand} onChange={e => setNewModelBrand(e.target.value)} className="flex-1 bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white">
+                <option value="">برند...</option>
+                {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+              <input type="text" value={newModelName} onChange={e => setNewModelName(e.target.value)} placeholder="نام مدل" className="flex-1 bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+              <button onClick={() => { if (newModelBrand && newModelName) { setModels([...models, { id: generateId(), brandId: newModelBrand, name: newModelName }]); setNewModelName(''); setNewModelBrand(''); } }} className="px-4 bg-blue-600 text-white rounded-xl">➕</button>
+            </div>
+            <div className="space-y-2">
+              {models.map(m => {
+                const brand = brands.find(b => b.id === m.brandId);
+                return (
+                  <div key={m.id} className="bg-slate-700/30 rounded-xl p-3 flex justify-between items-center">
+                    <span className="text-white">{brand?.name} - {m.name}</span>
+                    <button onClick={() => { if (confirm('حذف؟')) setModels(models.filter(x => x.id !== m.id)); }} className="text-rose-400">🗑️</button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {tab === 'colors' && (
+          <div className="bg-slate-800/60 rounded-2xl p-6 border border-slate-700/50">
+            <h3 className="text-xl font-bold mb-4">رنگ‌ها</h3>
+            <div className="flex gap-2 mb-4">
+              <input type="text" value={newColorName} onChange={e => setNewColorName(e.target.value)} placeholder="نام رنگ" className="flex-1 bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+              <input type="color" value={newColorCode} onChange={e => setNewColorCode(e.target.value)} className="w-20 h-10 bg-slate-700/50 border border-slate-600 rounded-xl cursor-pointer" />
+              <button onClick={() => { if (newColorName) { setColors([...colors, { id: generateId(), name: newColorName, code: newColorCode }]); setNewColorName(''); } }} className="px-4 bg-blue-600 text-white rounded-xl">➕</button>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {colors.map(c => (
+                <div key={c.id} className="bg-slate-700/30 rounded-xl p-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full border-2 border-white" style={{ backgroundColor: c.code }} />
+                    <span className="text-white text-sm">{c.name}</span>
+                  </div>
+                  <button onClick={() => { if (confirm('حذف؟')) setColors(colors.filter(x => x.id !== c.id)); }} className="text-rose-400">🗑️</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Customer Manager
+  const CustomerManager = () => {
+    const [name, setName] = useState('');
+    const [phone, setPhone] = useState('');
+    const [address, setAddress] = useState('');
+    const [nationalId, setNationalId] = useState('');
+    const [job, setJob] = useState('');
+    const [city, setCity] = useState('');
+    const [notes, setNotes] = useState('');
+    const [search, setSearch] = useState('');
+
+    const addCustomer = () => {
+      if (!name || !phone) return;
+      const customer: Customer = {
+        id: generateId(), name, phone, address, nationalId, job, city, notes,
+        creditor: 0, debtor: 0, createdAt: new Date().toISOString(),
+      };
+      setCustomers(prev => [customer, ...prev]);
+      setName(''); setPhone(''); setAddress(''); setNationalId(''); setJob(''); setCity(''); setNotes('');
+    };
+
+    const filtered = customers.filter(c => 
+      c.name.includes(search) || c.phone.includes(search) || c.nationalId?.includes(search) || c.city?.includes(search)
+    );
+
+    return (
+      <div className="space-y-6">
+        <h2 className="text-3xl font-bold">👥 مدیریت اشخاص</h2>
+        
+        <div className="bg-slate-800/60 rounded-2xl p-6 border border-slate-700/50">
+          <h3 className="text-xl font-bold mb-4">ثبت شخص جدید</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="نام *" className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+            <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="تلفن *" className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+            <input type="text" value={nationalId} onChange={e => setNationalId(e.target.value)} placeholder="کد ملی" className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+            <input type="text" value={job} onChange={e => setJob(e.target.value)} placeholder="شغل" className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+            <input type="text" value={city} onChange={e => setCity(e.target.value)} placeholder="شهر" className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+            <input type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="آدرس" className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+          </div>
+          <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="یادداشت" rows={2} className="mt-4 w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+          <button onClick={addCustomer} className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl">✓ ثبت شخص</button>
+        </div>
+
+        <div className="bg-slate-800/60 rounded-2xl p-6 border border-slate-700/50">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-bold">لیست اشخاص ({filtered.length})</h3>
+            <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 جستجو..." className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white w-64" />
+          </div>
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {filtered.map(c => (
+              <div key={c.id} className="bg-slate-700/30 rounded-xl p-3 flex justify-between items-center">
+                <div>
+                  <p className="text-white font-medium">{c.name}</p>
+                  <p className="text-slate-400 text-xs">{c.phone} {c.city && `| ${c.city}`} {c.job && `| ${c.job}`}</p>
+                </div>
+                <button onClick={() => { if (confirm('حذف؟')) setCustomers(prev => prev.filter(x => x.id !== c.id)); }} className="text-rose-400">🗑️</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Invoice Form
+  const InvoiceForm = ({ type }: { type: 'purchase' | 'sale' }) => {
+    const [customerId, setCustomerId] = useState('');
+    const [items, setItems] = useState<InvoiceItem[]>([]);
+    const [selectedProduct, setSelectedProduct] = useState('');
+    const [quantity, setQuantity] = useState(1);
+    const [unitPrice, setUnitPrice] = useState('');
+    const [paymentType, setPaymentType] = useState<'cash' | 'installment'>('cash');
+    const [downPayment, setDownPayment] = useState('');
+    const [months, setMonths] = useState(3);
+    const [description, setDescription] = useState('');
+
+    const addItem = () => {
+      const product = products.find(p => p.id === selectedProduct);
+      if (!product || !unitPrice) return;
+      const item: InvoiceItem = {
+        id: generateId(),
+        productId: product.id,
+        productName: getProductName(product),
+        quantity,
+        unitPrice: Number(unitPrice),
+        total: quantity * Number(unitPrice),
+      };
+      setItems([...items, item]);
+      setSelectedProduct(''); setQuantity(1); setUnitPrice('');
+    };
+
+    const total = items.reduce((sum, i) => sum + i.total, 0);
+
+    const submitInvoice = () => {
+      if (!customerId || items.length === 0) return;
+      const paid = paymentType === 'cash' ? total : Number(downPayment) || 0;
+      let installments: Installment[] | undefined;
+      
+      if (paymentType === 'installment' && Number(downPayment) < total) {
+        const { amount, dates } = calculateInstallments(total, paid, months);
+        installments = dates.map((date, i) => ({
+          id: generateId(),
+          amount: i === dates.length - 1 ? amount + (total - paid - amount * months) : amount,
+          dueDate: date,
+          status: 'pending',
+        }));
+      }
+
+      const invoice: Invoice = {
+        id: generateId(),
+        invoiceNumber: generateInvoiceNumber(type),
+        type,
+        customerId,
+        items,
+        total,
+        paid,
+        remaining: total - paid,
+        paymentType,
+        installments,
+        date: getTodayDate(),
+        description,
+      };
+
+      setInvoices(prev => [invoice, ...prev]);
+      
+      // Update stock
+      items.forEach(item => {
+        setProducts(prev => prev.map(p => {
+          if (p.id === item.productId) {
+            const newStock = type === 'sale' ? p.stock - item.quantity : p.stock + item.quantity;
+            return { ...p, stock: newStock };
+          }
+          return p;
+        }));
+      });
+
+      // Reset
+      setCustomerId(''); setItems([]); setDownPayment(''); setDescription('');
+      alert('✅ فاکتور ثبت شد!');
+    };
+
+    return (
+      <div className="space-y-6">
+        <h2 className="text-3xl font-bold">{type === 'purchase' ? '🛒 فاکتور خرید' : '💰 فاکتور فروش'}</h2>
+        
+        <div className="bg-slate-800/60 rounded-2xl p-6 border border-slate-700/50">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-slate-300 text-sm mb-1">{type === 'purchase' ? 'تأمین‌کننده' : 'مشتری'} *</label>
+              <select value={customerId} onChange={e => setCustomerId(e.target.value)} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white">
+                <option value="">انتخاب...</option>
+                {customers.map(c => <option key={c.id} value={c.id}>{c.name} - {c.phone}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-slate-300 text-sm mb-1">نوع پرداخت</label>
+              <div className="flex gap-2">
+                <button onClick={() => setPaymentType('cash')} className={`flex-1 py-2 rounded-xl ${paymentType === 'cash' ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-300'}`}>💵 نقدی</button>
+                <button onClick={() => setPaymentType('installment')} className={`flex-1 py-2 rounded-xl ${paymentType === 'installment' ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300'}`}>💳 اقساطی</button>
+              </div>
+            </div>
+          </div>
+
+          {paymentType === 'installment' && (
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-slate-300 text-sm mb-1">پیش‌پرداخت</label>
+                <input type="number" value={downPayment} onChange={e => setDownPayment(e.target.value)} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+              </div>
+              <div>
+                <label className="block text-slate-300 text-sm mb-1">تعداد اقساط</label>
+                <select value={months} onChange={e => setMonths(Number(e.target.value))} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white">
+                  {[3, 6, 9, 12, 18, 24].map(m => <option key={m} value={m}>{m} ماه</option>)}
+                </select>
+              </div>
+            </div>
+          )}
+
+          <div className="border-t border-slate-700 pt-4">
+            <h4 className="text-lg font-bold mb-3">افزودن کالا</h4>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <select value={selectedProduct} onChange={e => { setSelectedProduct(e.target.value); const p = products.find(x => x.id === e.target.value); if (p) setUnitPrice(type === 'purchase' ? p.buyPrice.toString() : p.sellPrice.toString()); }} className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white">
+                <option value="">کالا...</option>
+                {products.map(p => <option key={p.id} value={p.id}>{getProductName(p)}</option>)}
+              </select>
+              <input type="number" value={quantity} onChange={e => setQuantity(Number(e.target.value))} min="1" className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" placeholder="تعداد" />
+              <input type="number" value={unitPrice} onChange={e => setUnitPrice(e.target.value)} className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" placeholder="قیمت واحد" />
+              <button onClick={addItem} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl">➕ افزودن</button>
+            </div>
+          </div>
+
+          {items.length > 0 && (
+            <div className="mt-4 space-y-2">
+              {items.map(item => (
+                <div key={item.id} className="bg-slate-700/30 rounded-xl p-3 flex justify-between items-center">
+                  <div>
+                    <p className="text-white">{item.productName}</p>
+                    <p className="text-slate-400 text-xs">{item.quantity} × {formatNumber(item.unitPrice)}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-emerald-400 font-bold">{formatNumber(item.total)}</span>
+                    <button onClick={() => setItems(items.filter(i => i.id !== item.id))} className="text-rose-400">✕</button>
+                  </div>
+                </div>
+              ))}
+              <div className="bg-blue-600/20 rounded-xl p-4 text-center">
+                <span className="text-blue-300">جمع کل: </span>
+                <span className="text-white text-2xl font-bold">{formatNumber(total)} تومان</span>
+              </div>
+            </div>
+          )}
+
+          <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="توضیحات" rows={2} className="mt-4 w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+          <button onClick={submitInvoice} disabled={!customerId || items.length === 0} className="mt-4 w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-600 text-white font-bold py-3 rounded-xl">✓ ثبت فاکتور</button>
+        </div>
+      </div>
+    );
+  };
+
+  // Invoice List
+  const InvoiceList = () => {
+    const [filter, setFilter] = useState<'all' | 'purchase' | 'sale'>('all');
+    const filtered = filter === 'all' ? invoices : invoices.filter(i => i.type === filter);
+
+    return (
+      <div className="space-y-6">
+        <h2 className="text-3xl font-bold">📋 لیست فاکتورها</h2>
+        
+        <div className="flex gap-2">
+          {[['all', 'همه'], ['purchase', 'خرید'], ['sale', 'فروش']].map(([v, l]) => (
+            <button key={v} onClick={() => setFilter(v as any)} className={`px-4 py-2 rounded-xl ${filter === v ? 'bg-blue-600 text-white' : 'bg-slate-700/50 text-slate-300'}`}>{l}</button>
+          ))}
+        </div>
+
+        <div className="space-y-2">
+          {filtered.map(inv => {
+            const customer = customers.find(c => c.id === inv.customerId);
+            return (
+              <div key={inv.id} className="bg-slate-800/60 rounded-2xl p-4 border border-slate-700/50">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-white font-bold">{inv.invoiceNumber}</p>
+                    <p className="text-slate-400 text-sm">{customer?.name} | {inv.date}</p>
+                    <p className="text-slate-500 text-xs">{inv.items.length} کالا | {inv.paymentType === 'cash' ? 'نقدی' : 'اقساطی'}</p>
+                  </div>
+                  <div className="text-left">
+                    <p className="text-emerald-400 font-bold">{formatNumber(inv.total)} تومان</p>
+                    {inv.remaining > 0 && <p className="text-rose-400 text-sm">باقیمانده: {formatNumber(inv.remaining)}</p>}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  // Settings
   const Settings = () => (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold">⚙️ تنظیمات</h2>
+      <h2 className="text-3xl font-bold">⚙️ تنظیمات</h2>
       <div className="bg-slate-800/60 rounded-2xl p-6 border border-slate-700/50">
-        <h3 className="text-xl font-bold mb-4">💾 پشتیبان‌گیری</h3>
-        <button onClick={handleExport} className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold mb-3">💾 دانلود پشتیبان</button>
-        <label className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold block text-center cursor-pointer">
-          📂 بازیابی از فایل
-          <input type="file" accept=".json" onChange={handleImport} className="hidden" />
-        </label>
+        <h3 className="text-xl font-bold mb-4">پشتیبان‌گیری و بازیابی</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <button onClick={handleExport} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl">💾 پشتیبان‌گیری</button>
+          <label className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl text-center cursor-pointer">
+            📥 بازیابی
+            <input type="file" accept=".json" onChange={handleImport} className="hidden" />
+          </label>
+        </div>
       </div>
     </div>
   );
 
-  const renderContent = () => {
+  const renderSection = () => {
     switch (activeSection) {
       case 'dashboard': return <Dashboard />;
-      case 'inventory': return (
-        <InventoryManager
-          categories={categories}
-          brands={brands}
-          models={models}
-          colors={colors}
-          onCategoriesChange={setCategories}
-          onBrandsChange={setBrands}
-          onModelsChange={setModels}
-          onColorsChange={setColors}
-        />
-      );
-      case 'invoice-purchase': return <PurchaseInvoiceForm />;
-      case 'list-invoices': return <InvoiceList />;
-      case 'settings-backup': return <Settings />;
-      default: return <div className="text-center py-12 text-slate-400"><span className="text-5xl block mb-4">🚧</span>این بخش به زودی اضافه می‌شود</div>;
+      case 'inventory': return <InventoryManager />;
+      case 'customers': return <CustomerManager />;
+      case 'invoice-purchase': return <InvoiceForm type="purchase" />;
+      case 'invoice-sale': return <InvoiceForm type="sale" />;
+      case 'invoices': return <InvoiceList />;
+      case 'settings': return <Settings />;
+      default: return <Dashboard />;
     }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
-      <div className={`fixed top-0 right-0 h-full bg-slate-900/95 backdrop-blur-lg border-l border-slate-700/50 transition-all duration-300 z-40 ${sidebarOpen ? 'w-72' : 'w-0 lg:w-20'}`}>
-        <div className="flex flex-col h-full">
-          <div className="p-4 border-b border-slate-700/50">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-violet-600 rounded-xl flex items-center justify-center text-xl">🏪</div>
-              {sidebarOpen && <div><h2 className="text-white font-bold text-sm">حسابداری فروشگاه</h2><p className="text-slate-400 text-xs">نسخه 2.0</p></div>}
-            </div>
+      <div className="fixed top-0 right-0 h-full bg-slate-900/95 backdrop-blur-lg border-l border-slate-700/50 w-64 z-40">
+        <div className="p-4 border-b border-slate-700/50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-violet-600 rounded-xl flex items-center justify-center text-xl">🏪</div>
+            <div><h2 className="text-white font-bold text-sm">حسابداری فروشگاه</h2><p className="text-slate-400 text-xs">نسخه 3.0</p></div>
           </div>
-          <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-            {[
-              { id: 'dashboard', label: 'داشبورد', icon: '🏠' },
-              { id: 'inventory', label: 'کالا و انبار', icon: '🏭' },
-              { id: 'invoice-purchase', label: 'فاکتور خرید', icon: '🛒' },
-              { id: 'list-invoices', label: 'لیست فاکتورها', icon: '📋' },
-              { id: 'settings-backup', label: 'تنظیمات', icon: '⚙️' },
-            ].map(item => (
-              <button key={item.id} onClick={() => setActiveSection(item.id)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeSection === item.id ? 'bg-gradient-to-r from-blue-600 to-violet-600 text-white' : 'text-slate-300 hover:bg-slate-800/50'}`}>
-                <span className="text-2xl">{item.icon}</span>
-                {sidebarOpen && <span className="font-medium text-sm">{item.label}</span>}
-              </button>
-            ))}
-          </nav>
         </div>
+        <nav className="p-3 space-y-1">
+          {[
+            { id: 'dashboard', label: 'داشبورد', icon: '🏠' },
+            { id: 'inventory', label: 'کالا و انبار', icon: '🏭' },
+            { id: 'customers', label: 'اشخاص', icon: '👥' },
+            { id: 'invoice-purchase', label: 'فاکتور خرید', icon: '🛒' },
+            { id: 'invoice-sale', label: 'فاکتور فروش', icon: '💰' },
+            { id: 'invoices', label: 'لیست فاکتورها', icon: '📋' },
+            { id: 'settings', label: 'تنظیمات', icon: '⚙️' },
+          ].map(item => (
+            <button key={item.id} onClick={() => setActiveSection(item.id)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeSection === item.id ? 'bg-gradient-to-r from-blue-600 to-violet-600 text-white' : 'text-slate-300 hover:bg-slate-800/50'}`}>
+              <span className="text-2xl">{item.icon}</span>
+              <span className="font-medium text-sm">{item.label}</span>
+            </button>
+          ))}
+        </nav>
       </div>
 
-      <div className={`transition-all duration-300 ${sidebarOpen ? 'lg:mr-72' : 'lg:mr-20'}`}>
+      <div className="lg:mr-64">
         <header className="bg-slate-900/80 backdrop-blur-lg border-b border-slate-700/50 sticky top-0 z-30">
           <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <button onClick={() => setSidebarOpen(!sidebarOpen)} className="lg:hidden w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">☰</button>
               <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-violet-600 rounded-xl flex items-center justify-center text-xl">🏪</div>
               <div><h1 className="text-xl font-bold">حسابداری فروشگاه</h1><p className="text-xs text-slate-500">آفلاین</p></div>
             </div>
@@ -412,7 +730,10 @@ export default function App() {
             </div>
           </div>
         </header>
-        <main className="max-w-7xl mx-auto px-4 py-6">{renderContent()}</main>
+
+        <main className="max-w-7xl mx-auto px-4 py-6">
+          {renderSection()}
+        </main>
       </div>
     </div>
   );

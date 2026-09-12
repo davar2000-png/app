@@ -6,45 +6,27 @@ export function formatNumber(num: number): string {
   return num.toLocaleString('fa-IR');
 }
 
-export function toJalali(gy: number, gm: number, gd: number): [number, number, number] {
-  const g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
-  let jy = gy <= 1600 ? 0 : 979;
-  gy -= gy <= 1600 ? 621 : 1600;
-  const gy2 = gm > 2 ? gy + 1 : gy;
-  let days = 365 * gy + Math.floor((gy2 + 3) / 4) - Math.floor((gy2 + 99) / 100) + Math.floor((gy2 + 399) / 400) - 80 + gd + g_d_m[gm - 1];
-  jy += 33 * Math.floor(days / 12053);
-  days %= 12053;
-  jy += 4 * Math.floor(days / 1461);
-  days %= 1461;
-  if (days > 365) {
-    jy += Math.floor((days - 1) / 365);
-    days = (days - 1) % 365;
-  }
-  const jm = days < 186 ? 1 + Math.floor(days / 31) : 7 + Math.floor((days - 186) / 30);
-  const jd = 1 + (days < 186 ? days % 31 : (days - 186) % 30);
-  return [jy, jm, jd];
-}
-
-export function formatJalaliDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  const [jy, jm, jd] = toJalali(date.getFullYear(), date.getMonth() + 1, date.getDate());
-  const monthNames = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
-  return `${jd} ${monthNames[jm - 1]} ${jy}`;
-}
-
-export function getTodayJalali(): string {
-  const today = new Date();
-  const [jy, jm, jd] = toJalali(today.getFullYear(), today.getMonth() + 1, today.getDate());
-  return `${jy}/${jm.toString().padStart(2, '0')}/${jd.toString().padStart(2, '0')}`;
-}
-
-export function getTodayString(): string {
+export function getTodayDate(): string {
   return new Date().toISOString().split('T')[0];
 }
 
-export function generateInvoiceNumber(type: string): string {
+export function generateInvoiceNumber(type: 'purchase' | 'sale'): string {
+  const prefix = type === 'purchase' ? 'P' : 'S';
+  const timestamp = Date.now().toString().slice(-6);
+  return `${prefix}-${timestamp}`;
+}
+
+export function calculateInstallments(totalAmount: number, downPayment: number, months: number): { amount: number; dates: string[] } {
+  const remaining = totalAmount - downPayment;
+  const installmentAmount = Math.round(remaining / months);
+  const dates: string[] = [];
   const today = new Date();
-  const [jy, jm, jd] = toJalali(today.getFullYear(), today.getMonth() + 1, today.getDate());
-  const prefix = type === 'purchase' ? 'K' : type === 'sale' ? 'F' : 'P';
-  return `${prefix}-${jy}${jm.toString().padStart(2, '0')}${jd.toString().padStart(2, '0')}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+  
+  for (let i = 1; i <= months; i++) {
+    const dueDate = new Date(today);
+    dueDate.setMonth(dueDate.getMonth() + i);
+    dates.push(dueDate.toISOString().split('T')[0]);
+  }
+  
+  return { amount: installmentAmount, dates };
 }
