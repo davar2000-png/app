@@ -1,0 +1,59 @@
+================================================================
+    HOW TO RUN - Store Accounting App
+================================================================
+
+PROBLEM:
+--------
+Clicking on index.html doesn't work because it needs a server.
+
+SOLUTION:
+---------
+
+METHOD 1: Double-click start.bat (Easiest - No install needed)
+---------------------------------------------------------------
+1. Find "start.bat" file
+2. Double-click it
+3. Browser opens automatically
+4. Done!
+
+This uses PowerShell which is already installed on Windows.
+
+
+METHOD 2: Manual with Python
+-----------------------------
+1. Download Python from: https://www.python.org/downloads/
+2. Install it (CHECK "Add Python to PATH")
+3. Restart computer
+4. Open Command Prompt
+5. Run:
+
+   cd dist
+   python -m http.server 8000
+
+6. Open: http://localhost:8000
+
+
+METHOD 3: Manual with Node.js
+------------------------------
+1. Download Node.js from: https://nodejs.org/
+2. Install it
+3. Open Command Prompt
+4. Run:
+
+   cd dist
+   npx serve -l 8000
+
+5. Open: http://localhost:8000
+
+
+================================================================
+    QUICK START
+================================================================
+
+Just double-click "start.bat" and you're done!
+
+The browser will open at: http://localhost:8000
+
+To stop: Close the window
+
+================================================================
