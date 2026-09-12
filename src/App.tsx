@@ -154,6 +154,7 @@ export default function App() {
 
     const filtered = people.filter(p => !p.isDeleted && (
       (filter === 'all' || p.type === filter) &&
+      (groupFilter === 'all' || p.groupId === groupFilter) &&
       (!search || p.name.includes(search) || p.mobile?.includes(search) || p.nationalId?.includes(search))
     ));
 
@@ -200,15 +201,78 @@ export default function App() {
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-bold">👥 مدیریت اشخاص</h2>
-          <button onClick={() => { setShowForm(!showForm); setEditId(null); setForm({ type: 'customer', creditor: 0, debtor: 0, documents: [] }); }}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl">{showForm ? '✕ بستن' : '➕ شخص جدید'}</button>
+          <div className="flex gap-2">
+            <button onClick={() => setShowGroupManager(!showGroupManager)}
+              className="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-xl">📁 گروه‌ها</button>
+            <button onClick={() => { setShowForm(!showForm); setEditId(null); setForm({ type: 'customer', creditor: 0, debtor: 0, documents: [], guarantor: { id: '', name: '', documents: [] } }); }}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl">{showForm ? '✕ بستن' : '➕ شخص جدید'}</button>
+          </div>
         </div>
+        {/* مدیریت گروه‌ها */}
+        {showGroupManager && (
+          <div className="bg-slate-800/60 rounded-2xl p-6 border border-violet-500/30">
+            <h3 className="text-lg font-bold mb-4 text-violet-400">📁 مدیریت گروه اشخاص</h3>
+            <div className="flex gap-2 mb-4">
+              <input value={newGroupName} onChange={e=>setNewGroupName(e.target.value)} placeholder="نام گروه" className="flex-1 bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+              <input type="color" value={newGroupColor} onChange={e=>setNewGroupColor(e.target.value)} className="w-16 h-10 bg-slate-700/50 border border-slate-600 rounded-xl cursor-pointer" />
+              <button onClick={()=>{
+                if(!newGroupName) return;
+                setPersonGroups([...personGroups, { id: generateId(), name: newGroupName, color: newGroupColor }]);
+                setNewGroupName(''); setNewGroupColor('#3b82f6');
+              }} className="px-4 bg-violet-600 text-white rounded-xl">➕ افزودن</button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {personGroups.map(g => (
+                <div key={g.id} className="flex items-center gap-2 px-3 py-2 rounded-xl border group" style={{borderColor: g.color+'50', backgroundColor: g.color+'15'}}>
+                  <div className="w-4 h-4 rounded-full" style={{backgroundColor: g.color}} />
+                  <span className="text-sm" style={{color: g.color}}>{g.name}</span>
+                  <button onClick={()=>{if(confirm('حذف گروه؟')){setPersonGroups(personGroups.filter(x=>x.id!==g.id));setPeople(people.map(p=>p.groupId===g.id?{...p,groupId:undefined}:p));}}} className="opacity-0 group-hover:opacity-100 text-rose-400 text-xs">✕</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {showForm && (
           <div className="bg-slate-800/60 rounded-2xl p-6 border border-slate-700/50">
             <h3 className="text-lg font-bold mb-4">{editId ? '✏️ ویرایش' : '➕ ثبت'} شخص</h3>
+            
+            {/* آپلود عکس پروفایل */}
+            <div className="mb-4 flex items-center gap-4">
+              <div className="relative">
+                {form.image ? (
+                  <img src={form.image} alt="پروفایل" className="w-24 h-24 rounded-xl object-cover border-2 border-blue-500/50 cursor-pointer" onClick={() => setViewImage(form.image!)} />
+                ) : (
+                  <div className="w-24 h-24 rounded-xl bg-slate-700/50 border-2 border-dashed border-slate-600 flex items-center justify-center text-3xl">👤</div>
+                )}
+                <label className="absolute bottom-0 left-0 right-0 bg-blue-600/80 text-white text-xs text-center py-1 rounded-b-xl cursor-pointer hover:bg-blue-600">
+                  📷 عکس
+                  <input type="file" accept="image/*" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                      setForm({...form, image: ev.target?.result as string});
+                    };
+                    reader.readAsDataURL(file);
+                  }} className="hidden" />
+                </label>
+              </div>
+              <div className="flex-1">
+                <p className="text-slate-300 text-sm mb-1">📷 عکس پروفایل</p>
+                <p className="text-slate-500 text-xs">از روی کارت ملی یا عکس پرسنلی آپلود کنید</p>
+                {form.image && (
+                  <button onClick={() => setForm({...form, image: undefined})} className="text-rose-400 text-xs mt-1">✕ حذف عکس</button>
+                )}
+              </div>
+            </div>
+            
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value as any })} className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white">
                 <option value="customer">مشتری</option><option value="supplier">تأمین‌کننده</option><option value="guarantor">ضامن</option><option value="employee">کارمند</option><option value="other">سایر</option>
+              </select>
+              <select value={form.groupId||''} onChange={e=>setForm({...form,groupId:e.target.value||undefined})} className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white">
+                <option value="">بدون گروه</option>
+                {personGroups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
               <input value={form.name||''} onChange={e=>setForm({...form,name:e.target.value})} placeholder="نام *" className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
               <input value={form.familyName||''} onChange={e=>setForm({...form,familyName:e.target.value})} placeholder="نام خانوادگی" className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
@@ -218,7 +282,9 @@ export default function App() {
               <input value={form.job||''} onChange={e=>setForm({...form,job:e.target.value})} placeholder="شغل" className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
               <input value={form.city||''} onChange={e=>setForm({...form,city:e.target.value})} placeholder="شهر" className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
               <input value={form.bankCard||''} onChange={e=>setForm({...form,bankCard:e.target.value})} placeholder="شماره کارت" className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+              <input value={form.address||''} onChange={e=>setForm({...form,address:e.target.value})} placeholder="آدرس" className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white md:col-span-3" />
             </div>
+            
             {/* مدارک */}
             <div className="mt-4">
               <label className="text-slate-300 text-sm mb-2 block">📎 مدارک (کارت ملی، قرارداد و...)</label>
@@ -238,6 +304,82 @@ export default function App() {
                 </div>
               )}
             </div>
+            
+            {/* بخش ضامن */}
+            <div className="mt-4 border border-amber-500/30 rounded-xl p-4 bg-amber-500/5">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-amber-400 font-bold">🛡️ ضامن (اختیاری)</h4>
+                {!form.guarantor?.name && (
+                  <button onClick={()=>setForm({...form, guarantor: { id: generateId(), name: '', documents: [] }})} className="text-xs bg-amber-600 text-white px-3 py-1 rounded-lg">➕ افزودن ضامن</button>
+                )}
+              </div>
+              {form.guarantor?.name !== undefined && form.guarantor?.name !== '' && (
+                <div className="space-y-3">
+                  {/* عکس ضامن */}
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      {form.guarantor.image ? (
+                        <img src={form.guarantor.image} alt="ضامن" className="w-16 h-16 rounded-xl object-cover border-2 border-amber-500/50 cursor-pointer" onClick={() => setViewImage(form.guarantor!.image!)} />
+                      ) : (
+                        <div className="w-16 h-16 rounded-xl bg-slate-700/50 border-2 border-dashed border-slate-600 flex items-center justify-center text-2xl">🛡️</div>
+                      )}
+                      <label className="absolute bottom-0 left-0 right-0 bg-amber-600/80 text-white text-[10px] text-center py-0.5 rounded-b-xl cursor-pointer hover:bg-amber-600">
+                        📷
+                        <input type="file" accept="image/*" onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            setForm({...form, guarantor: {...form.guarantor!, image: ev.target?.result as string}});
+                          };
+                          reader.readAsDataURL(file);
+                        }} className="hidden" />
+                      </label>
+                    </div>
+                    <div className="flex-1 grid grid-cols-2 gap-2">
+                      <input value={form.guarantor.name||''} onChange={e=>setForm({...form, guarantor:{...form.guarantor!, name:e.target.value}})} placeholder="نام ضامن *" className="bg-slate-700/50 border border-slate-600 rounded-lg px-2 py-1.5 text-white text-sm" />
+                      <input value={form.guarantor.mobile||''} onChange={e=>setForm({...form, guarantor:{...form.guarantor!, mobile:e.target.value}})} placeholder="موبایل" className="bg-slate-700/50 border border-slate-600 rounded-lg px-2 py-1.5 text-white text-sm" />
+                      <input value={form.guarantor.nationalId||''} onChange={e=>setForm({...form, guarantor:{...form.guarantor!, nationalId:e.target.value}})} placeholder="کد ملی" className="bg-slate-700/50 border border-slate-600 rounded-lg px-2 py-1.5 text-white text-sm" />
+                      <input value={form.guarantor.job||''} onChange={e=>setForm({...form, guarantor:{...form.guarantor!, job:e.target.value}})} placeholder="شغل" className="bg-slate-700/50 border border-slate-600 rounded-lg px-2 py-1.5 text-white text-sm" />
+                    </div>
+                  </div>
+                  {/* مدارک ضامن */}
+                  <div>
+                    <label className="flex items-center justify-center gap-2 bg-slate-600/50 border border-dashed border-amber-500/50 rounded-xl p-2 cursor-pointer hover:bg-slate-600">
+                      <span className="text-xs">📎 مدارک ضامن</span>
+                      <input type="file" multiple accept="image/*,.pdf" onChange={(e) => {
+                        const files = e.target.files;
+                        if (!files) return;
+                        Array.from(files).forEach(file => {
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            const doc: PersonDocument = {
+                              id: generateId(), name: file.name, type: file.type,
+                              data: ev.target?.result as string, date: getTodayDate(),
+                            };
+                            setForm({...form, guarantor: {...form.guarantor!, documents: [...(form.guarantor!.documents || []), doc]}});
+                          };
+                          reader.readAsDataURL(file);
+                        });
+                      }} className="hidden" />
+                    </label>
+                    {form.guarantor.documents && form.guarantor.documents.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {form.guarantor.documents.map(d => (
+                          <div key={d.id} className="bg-slate-700/50 rounded-lg p-1.5 flex items-center gap-1">
+                            <span className="text-xs">{d.type.includes('image') ? '🖼️' : '📄'}</span>
+                            <span className="text-[10px] text-slate-300">{d.name}</span>
+                            <button onClick={() => setForm({...form, guarantor: {...form.guarantor!, documents: form.guarantor!.documents.filter(x=>x.id!==d.id)}})} className="text-rose-400 text-[10px]">✕</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <button onClick={()=>setForm({...form, guarantor: undefined})} className="text-rose-400 text-xs">✕ حذف ضامن</button>
+                </div>
+              )}
+            </div>
+            
             <textarea value={form.notes||''} onChange={e=>setForm({...form,notes:e.target.value})} placeholder="توضیحات" rows={2} className="mt-3 w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
             <button onClick={save} className="mt-3 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl">💾 ذخیره</button>
           </div>
@@ -247,6 +389,10 @@ export default function App() {
           {['all','customer','supplier','guarantor','employee'].map(t=>(
             <button key={t} onClick={()=>setFilter(t)} className={`px-3 py-2 rounded-xl text-sm ${filter===t?'bg-blue-600 text-white':'bg-slate-700/50 text-slate-300'}`}>{t==='all'?'همه':typeLabel[t]}</button>
           ))}
+          <select value={groupFilter} onChange={e=>setGroupFilter(e.target.value)} className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white text-sm">
+            <option value="all">همه گروه‌ها</option>
+            {personGroups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}
+          </select>
         </div>
         <div className="bg-slate-800/60 rounded-2xl border border-slate-700/50 overflow-hidden">
           <div className="p-4 border-b border-slate-700/50"><span className="text-slate-400 text-sm">{filtered.length} نفر</span></div>
@@ -256,10 +402,15 @@ export default function App() {
                 <div className="flex items-center gap-3">
                   {p.image ? <img src={p.image} className="w-10 h-10 rounded-xl object-cover" /> : <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">👤</div>}
                   <div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-white font-medium">{p.name} {p.familyName||''}</span>
                       <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">{typeLabel[p.type]}</span>
+                      {p.groupId && (() => {
+                        const g = personGroups.find(x => x.id === p.groupId);
+                        return g ? <span className="text-xs px-2 py-0.5 rounded-full" style={{backgroundColor: g.color+'30', color: g.color}}>{g.name}</span> : null;
+                      })()}
                       {p.documents && p.documents.length > 0 && <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400">📎 {p.documents.length}</span>}
+                      {p.guarantor && <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400">🛡️ ضامن</span>}
                     </div>
                     <div className="text-xs text-slate-400 flex gap-3">
                       {p.mobile && <span>📱 {p.mobile}</span>}
