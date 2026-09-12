@@ -1326,6 +1326,21 @@ export default function App() {
       };
       reader.readAsText(file);
     };
+    const handleReset = () => {
+      if (!confirm('⚠️ هشدار: تمام اطلاعات حذف خواهد شد!\n\nآیا مطمئن هستید؟')) return;
+      if (!confirm('⚠️ تأیید نهایی: این عمل قابل بازگشت نیست!\n\nادامه دهید؟')) return;
+      setPeople([]);
+      setProducts([]);
+      setSerials([]);
+      setCardex([]);
+      setInvoices([]);
+      setCheques([]);
+      setBanks([]);
+      setAudit([]);
+      localStorage.clear();
+      alert('✅ تمام اطلاعات حذف شد!');
+      window.location.reload();
+    };
     return (
       <div className="space-y-4">
         <h2 className="text-2xl font-bold">⚙️ تنظیمات</h2>
@@ -1348,6 +1363,13 @@ export default function App() {
             <div className="text-center"><p className="text-2xl font-bold">{audit.length}</p><p className="text-slate-400 text-sm">Audit</p></div>
             <div className="text-center"><p className="text-2xl font-bold">{banks.length}</p><p className="text-slate-400 text-sm">بانک</p></div>
           </div>
+        </div>
+        <div className="bg-rose-900/30 rounded-2xl p-6 border border-rose-500/50">
+          <h3 className="text-lg font-bold mb-4 text-rose-400">⚠️ خام کردن برنامه</h3>
+          <p className="text-slate-300 mb-4">این دکمه تمام اطلاعات وارد شده را حذف می‌کند. قبل از خام کردن، حتماً پشتیبان‌گیری کنید!</p>
+          <button onClick={handleReset} className="bg-rose-600 hover:bg-rose-700 text-white font-bold py-3 px-6 rounded-xl w-full transition-colors">
+            🗑️ خام کردن برنامه
+          </button>
         </div>
       </div>
     );
