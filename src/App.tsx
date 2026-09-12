@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type {
-  Person, PersonDocument, Product, SerialItem, CardexEntry,
+  Person, PersonDocument, PersonGroup, Guarantor, Product, SerialItem, CardexEntry,
   Invoice, InvoiceItem, Installment, Cheque, Bank,
   ProductCategory, ProductBrand, ProductModel, ProductColor,
   AuditLog, Section
@@ -21,6 +21,11 @@ function useLS<T>(key: string, init: T): [T, React.Dispatch<React.SetStateAction
 
 export default function App() {
   const [people, setPeople] = useLS<Person[]>('tk_people', []);
+  const [personGroups, setPersonGroups] = useLS<PersonGroup[]>('tk_person_groups', [
+    { id: 'vip', name: 'مشتریان VIP', color: '#f59e0b' },
+    { id: 'regular', name: 'مشتریان عادی', color: '#3b82f6' },
+    { id: 'wholesale', name: 'عمده‌فروشان', color: '#10b981' },
+  ]);
   const [products, setProducts] = useLS<Product[]>('tk_products', []);
   const [serials, setSerials] = useLS<SerialItem[]>('tk_serials', []);
   const [cardex, setCardex] = useLS<CardexEntry[]>('tk_cardex', []);
@@ -134,11 +139,18 @@ export default function App() {
   // ===== PEOPLE =====
   const PeopleSection = () => {
     const [showForm, setShowForm] = useState(false);
+    const [showGroupManager, setShowGroupManager] = useState(false);
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState('all');
-    const [form, setForm] = useState<Partial<Person>>({ type: 'customer', creditor: 0, debtor: 0, documents: [] });
+    const [groupFilter, setGroupFilter] = useState('all');
+    const [form, setForm] = useState<Partial<Person>>({ type: 'customer', creditor: 0, debtor: 0, documents: [], guarantor: { id: '', name: '', documents: [] } });
     const [editId, setEditId] = useState<string | null>(null);
-    const [viewDocs, setViewDocs] = useState<PersonDocument[] | null>(null);
+    const [viewImage, setViewImage] = useState<string | null>(null);
+    const [viewDocs, setViewDocs] = useState<{person: Person, type: 'person' | 'guarantor'} | null>(null);
+    
+    // Group management states
+    const [newGroupName, setNewGroupName] = useState('');
+    const [newGroupColor, setNewGroupColor] = useState('#3b82f6');
 
     const filtered = people.filter(p => !p.isDeleted && (
       (filter === 'all' || p.type === filter) &&
@@ -257,8 +269,14 @@ export default function App() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {p.documents && p.documents.length > 0 && (
-                    <button onClick={() => setViewDocs(p.documents)} className="text-cyan-400 text-sm">📎 مدارک</button>
+                  {p.image && (
+                    <button onClick={() => setViewImage(p.image!)} className="text-blue-400 text-sm">🖼️ تصویر</button>
+                  )}
+                  {(p.documents?.length || 0) > 0 && (
+                    <button onClick={() => setViewDocs({person: p, type: 'person'})} className="text-cyan-400 text-sm">📎 مدارک</button>
+                  )}
+                  {p.guarantor && (
+                    <button onClick={() => setViewDocs({person: p, type: 'guarantor'})} className="text-amber-400 text-sm">🛡️ ضامن</button>
                   )}
                   <button onClick={()=>{setForm(p);setEditId(p.id);setShowForm(true);}} className="opacity-0 group-hover:opacity-100 text-amber-400">✏️</button>
                   <button onClick={()=>del(p.id)} className="opacity-0 group-hover:opacity-100 text-rose-400">🗑️</button>
@@ -267,23 +285,58 @@ export default function App() {
             ))}
           </div>
         </div>
-        {/* مودال مدارک */}
+        {/* مودال تصویر */}
+        {viewImage && (
+          <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={()=>setViewImage(null)}>
+            <img src={viewImage} alt="تصویر" className="max-w-full max-h-full object-contain" onClick={e=>e.stopPropagation()} />
+          </div>
+        )}
+        {/* مودال مدارک و ضامن */}
         {viewDocs && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={()=>setViewDocs(null)}>
             <div className="bg-slate-800 rounded-2xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto" onClick={e=>e.stopPropagation()}>
-              <h3 className="text-xl font-bold text-white mb-4">📎 مدارک</h3>
-              <div className="grid grid-cols-2 gap-3">
-                {viewDocs.map(d => (
-                  <div key={d.id} className="bg-slate-700/30 rounded-xl p-3">
-                    {d.type.includes('image') ? (
-                      <img src={d.data} alt={d.name} className="w-full h-32 object-cover rounded-lg mb-2 cursor-pointer" onClick={() => window.open(d.data)} />
-                    ) : (
-                      <div className="w-full h-32 bg-slate-600/50 rounded-lg mb-2 flex items-center justify-center text-3xl">📄</div>
-                    )}
-                    <p className="text-xs text-slate-300 truncate">{d.name}</p>
+              <h3 className="text-xl font-bold text-white mb-4">
+                {viewDocs.type === 'person' ? `📎 مدارک ${viewDocs.person.name}` : `🛡️ ضامن ${viewDocs.person.name}`}
+              </h3>
+              {viewDocs.type === 'guarantor' && viewDocs.person.guarantor && (
+                <div className="space-y-4">
+                  {viewDocs.person.guarantor.image && (
+                    <div>
+                      <p className="text-slate-300 mb-2">تصویر ضامن:</p>
+                      <img src={viewDocs.person.guarantor.image} alt="ضامن" className="w-32 h-32 object-cover rounded-xl cursor-pointer" onClick={() => setViewImage(viewDocs.person.guarantor!.image!)} />
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-slate-300 mb-2">مدارک ضامن:</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {viewDocs.person.guarantor.documents.map(d => (
+                        <div key={d.id} className="bg-slate-700/30 rounded-xl p-3">
+                          {d.type.includes('image') ? (
+                            <img src={d.data} alt={d.name} className="w-full h-32 object-cover rounded-lg mb-2 cursor-pointer" onClick={() => setViewImage(d.data)} />
+                          ) : (
+                            <div className="w-full h-32 bg-slate-600/50 rounded-lg mb-2 flex items-center justify-center text-3xl">📄</div>
+                          )}
+                          <p className="text-xs text-slate-300 truncate">{d.name}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
+              {viewDocs.type === 'person' && (
+                <div className="grid grid-cols-2 gap-3">
+                  {viewDocs.person.documents.map(d => (
+                    <div key={d.id} className="bg-slate-700/30 rounded-xl p-3">
+                      {d.type.includes('image') ? (
+                        <img src={d.data} alt={d.name} className="w-full h-32 object-cover rounded-lg mb-2 cursor-pointer" onClick={() => setViewImage(d.data)} />
+                      ) : (
+                        <div className="w-full h-32 bg-slate-600/50 rounded-lg mb-2 flex items-center justify-center text-3xl">📄</div>
+                      )}
+                      <p className="text-xs text-slate-300 truncate">{d.name}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
               <button onClick={()=>setViewDocs(null)} className="mt-4 w-full bg-slate-700 text-white py-2 rounded-xl">بستن</button>
             </div>
           </div>
@@ -509,6 +562,10 @@ export default function App() {
   // ===== CARDEX =====
   const CardexSection = () => {
     const [selProduct, setSelProduct] = useState('');
+    const [searchProduct, setSearchProduct] = useState('');
+    const filteredProducts = products.filter(p => !p.isDeleted && 
+      (!searchProduct || getProductName(p).toLowerCase().includes(searchProduct.toLowerCase()) || p.code.toLowerCase().includes(searchProduct.toLowerCase()))
+    );
     const productCardex = cardex.filter(c => c.productId === selProduct).sort((a, b) => a.date.localeCompare(b.date));
     const totalIn = productCardex.filter(c => ['purchase_in', 'return_in'].includes(c.type)).reduce((s, c) => s + c.quantity, 0);
     const totalOut = productCardex.filter(c => ['sale_out', 'return_out'].includes(c.type)).reduce((s, c) => s + c.quantity, 0);
@@ -518,9 +575,15 @@ export default function App() {
     return (
       <div className="space-y-4">
         <h2 className="text-2xl font-bold">📊 کاردکس انبار</h2>
+        <input 
+          value={searchProduct} 
+          onChange={e => setSearchProduct(e.target.value)} 
+          placeholder="🔍 جستجوی کالا (نام یا کد)..." 
+          className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white placeholder-slate-500"
+        />
         <select value={selProduct} onChange={e => setSelProduct(e.target.value)} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white">
           <option value="">انتخاب کالا...</option>
-          {products.filter(p => !p.isDeleted).map(p => <option key={p.id} value={p.id}>{getProductName(p)}</option>)}
+          {filteredProducts.map(p => <option key={p.id} value={p.id}>{getProductName(p)} ({p.code})</option>)}
         </select>
         {selProduct && (
           <>
@@ -1400,7 +1463,6 @@ export default function App() {
   const menuItems: { id: Section; label: string; icon: string }[] = [
     { id: 'dashboard', label: 'داشبورد', icon: '🏠' },
     { id: 'inventory', label: 'کالا و انبار', icon: '🏭' },
-    { id: 'serials', label: 'سریال موبایل', icon: '📲' },
     { id: 'cardex', label: 'کاردکس', icon: '📊' },
     { id: 'people', label: 'اشخاص', icon: '👥' },
     { id: 'purchase', label: 'فاکتور خرید', icon: '🛒' },

@@ -1,6 +1,25 @@
+export interface PersonGroup {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export interface Guarantor {
+  id: string;
+  name: string;
+  mobile?: string;
+  phone?: string;
+  nationalId?: string;
+  address?: string;
+  job?: string;
+  image?: string;
+  documents: PersonDocument[];
+}
+
 export interface Person {
   id: string;
   type: 'customer' | 'supplier' | 'guarantor' | 'employee' | 'other';
+  groupId?: string;
   name: string;
   familyName?: string;
   nationalId?: string;
@@ -16,6 +35,7 @@ export interface Person {
   creditor: number;
   debtor: number;
   documents: PersonDocument[];
+  guarantor?: Guarantor;
   isDeleted: boolean;
   createdAt: string;
 }
