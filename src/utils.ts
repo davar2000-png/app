@@ -6,7 +6,6 @@ export function formatNumber(num: number): string {
   return num.toLocaleString('fa-IR');
 }
 
-// تبدیل تاریخ میلادی به شمسی
 export function toJalali(gy: number, gm: number, gd: number): [number, number, number] {
   const g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
   let jy = gy <= 1600 ? 0 : 979;
@@ -26,7 +25,6 @@ export function toJalali(gy: number, gm: number, gd: number): [number, number, n
   return [jy, jm, jd];
 }
 
-// فرمت تاریخ شمسی
 export function formatJalaliDate(dateStr: string): string {
   const date = new Date(dateStr);
   const [jy, jm, jd] = toJalali(date.getFullYear(), date.getMonth() + 1, date.getDate());
@@ -34,22 +32,19 @@ export function formatJalaliDate(dateStr: string): string {
   return `${jd} ${monthNames[jm - 1]} ${jy}`;
 }
 
-// تاریخ امروز شمسی
 export function getTodayJalali(): string {
   const today = new Date();
   const [jy, jm, jd] = toJalali(today.getFullYear(), today.getMonth() + 1, today.getDate());
   return `${jy}/${jm.toString().padStart(2, '0')}/${jd.toString().padStart(2, '0')}`;
 }
 
-// تاریخ امروز میلادی
 export function getTodayString(): string {
   return new Date().toISOString().split('T')[0];
 }
 
-// تولید شماره فاکتور
 export function generateInvoiceNumber(type: string): string {
   const today = new Date();
   const [jy, jm, jd] = toJalali(today.getFullYear(), today.getMonth() + 1, today.getDate());
-  const prefix = type === 'purchase' ? 'K' : 'F';
+  const prefix = type === 'purchase' ? 'K' : type === 'sale' ? 'F' : 'P';
   return `${prefix}-${jy}${jm.toString().padStart(2, '0')}${jd.toString().padStart(2, '0')}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
 }
