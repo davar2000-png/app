@@ -995,7 +995,7 @@ export default function App() {
 
   // ===== EXCEL IMPORT =====
   const ImportSection = () => {
-    const [importType, setImportType] = useState<'people'|'products'>('people');
+    const [importType, setImportType] = useState<'people'|'products'|'cheques'|'invoices'>('people');
     const [data, setData] = useState<any[][]>([]);
     const [headers, setHeaders] = useState<string[]>([]);
     const [fileName, setFileName] = useState('');
@@ -1017,6 +1017,7 @@ export default function App() {
     const doImport = () => {
       if (data.length === 0) return;
       const h = headers;
+      
       if (importType === 'people') {
         const newPeople: Person[] = data.map(row => {
           const obj: any = {};
@@ -1039,28 +1040,156 @@ export default function App() {
         setPeople(prev => [...newPeople, ...prev]);
         log('CREATE', 'import', generateId(), `ورود ${newPeople.length} شخص از اکسل`);
         alert(`✅ ${newPeople.length} شخص وارد شد`);
-      } else {
-        // Products import would go here
-        alert('ورود محصولات - به زودی');
+        
+      } else if (importType === 'products') {
+        const newProducts: Product[] = data.map(row => {
+          const obj: any = {};
+          h.forEach((key, i) => { obj[key] = row[i]; });
+          
+          // Find or create brand
+          const brandName = obj['برند'] || obj['Brand'] || '';
+          let brand = brands.find(b => b.name === brandName);
+          if (!brand && brandName) {
+            brand = { id: generateId(), categoryId: 'phone', name: brandName };
+            setBrands(prev => [...prev, brand!]);
+          }
+          
+          // Find or create model
+          const modelName = obj['مدل'] || obj['Model'] || '';
+          let model = models.find(m => m.name === modelName);
+          if (!model && modelName && brand) {
+            model = { id: generateId(), brandId: brand.id, name: modelName };
+            setModels(prev => [...prev, model!]);
+          }
+          
+          const product: Product = {
+            id: generateId(),
+            code: generateProductCode(),
+            name: [brandName, modelName, obj['رنگ'], obj['رم'] && `${obj['رم']}GB`, obj['حافظه'] && `${obj['حافظه']}GB`].filter(Boolean).join(' - '),
+            categoryId: 'phone',
+            brandId: brand?.id || '',
+            modelId: model?.id || '',
+            color: obj['رنگ'] || '',
+            ram: obj['رم'] || '',
+            storage: obj['حافظه'] || '',
+            buyPrice: Number(obj['قیمت خرید']) || 0,
+            sellPrice: Number(obj['قیمت فروش']) || 0,
+            stock: Number(obj['موجودی']) || 0,
+            minStock: Number(obj['حداقل موجودی']) || 0,
+            reorderPoint: Number(obj['نقطه سفارش']) || 0,
+            allowNegativeStock: false,
+            hasSerial: false,
+            isDeleted: false,
+            createdAt: new Date().toISOString(),
+          };
+          return product;
+        }).filter(p => p.name && p.buyPrice && p.sellPrice);
+        
+        setProducts(prev => [...newProducts, ...prev]);
+        log('CREATE', 'import', generateId(), `ورود ${newProducts.length} کالا از اکسل`);
+        alert(`✅ ${newProducts.length} کالا وارد شد`);
+        
+      } else if (importType === 'cheques') {
+        const newCheques: Cheque[] = data.map(row => {
+          const obj: any = {};
+          h.forEach((key, i) => { obj[key] = row[i]; });
+          
+          const cheque: Cheque = {
+            id: generateId(),
+            chequeNumber: obj['شماره چک'] || obj['شماره'] || '',
+            bankName: obj['بانک'] || obj['Bank'] || '',
+            amount: Number(obj['مبلغ']) || 0,
+            issuerName: obj['صادرکننده'] || obj['نام صادرکننده'] || '',
+            issuerNationalId: obj['کد ملی صادرکننده'] || '',
+            dueDate: obj['تاریخ سررسید'] || obj['سررسید'] || obj['تاریخ'] || getTodayDate(),
+            type: (obj['نوع'] || 'دریافتی').includes('پرداخت') ? 'paid' : 'received',
+            status: 'pending',
+            description: obj['توضیحات'] || '',
+            isDeleted: false,
+            createdAt: new Date().toISOString(),
+          };
+          return cheque;
+        }).filter(c => c.chequeNumber && c.bankName && c.amount);
+        
+        setCheques(prev => [...newCheques, ...prev]);
+        log('CREATE', 'import', generateId(), `ورود ${newCheques.length} چک از اکسل`);
+        alert(`✅ ${newCheques.length} چک وارد شد`);
+        
+      } else if (importType === 'invoices') {
+        const newInvoices: Invoice[] = data.map(row => {
+          const obj: any = {};
+          h.forEach((key, i) => { obj[key] = row[i]; });
+          
+          // Find person by name
+          const personName = obj['مشتری'] || obj['تأمین‌کننده'] || obj['شخص'] || '';
+          const person = people.find(p => p.name === personName);
+          
+          const invoice: Invoice = {
+            id: generateId(),
+            invoiceNumber: obj['شماره فاکتور'] || obj['شماره'] || generateInvoiceNumber(obj['نوع']?.includes('خرید') ? 'purchase' : 'sale'),
+            type: (obj['نوع'] || 'فروش').includes('خرید') ? 'purchase' : 'sale',
+            personId: person?.id || '',
+            items: [],
+            total: Number(obj['مبلغ کل']) || Number(obj['مبلغ']) || 0,
+            discount: Number(obj['تخفیف']) || 0,
+            paid: Number(obj['پرداخت شده']) || Number(obj['مبلغ کل']) || 0,
+            remaining: 0,
+            paymentType: (obj['نوع پرداخت'] || 'نقدی').includes('اقساط') ? 'installment' : 'cash',
+            status: 'active',
+            description: obj['توضیحات'] || '',
+            date: obj['تاریخ'] || getTodayDate(),
+            createdAt: new Date().toISOString(),
+          };
+          invoice.remaining = invoice.total - invoice.paid;
+          return invoice;
+        }).filter(i => i.total > 0);
+        
+        setInvoices(prev => [...newInvoices, ...prev]);
+        log('CREATE', 'import', generateId(), `ورود ${newInvoices.length} فاکتور از اکسل`);
+        alert(`✅ ${newInvoices.length} فاکتور وارد شد`);
       }
+      
       setData([]); setHeaders([]); setFileName('');
     };
+
+    const getRequiredColumns = () => {
+      switch (importType) {
+        case 'people':
+          return { required: ['نام'], optional: ['موبایل', 'کد ملی', 'شغل', 'شهر', 'آدرس', 'بستانکار', 'بدهکار', 'توضیحات'] };
+        case 'products':
+          return { required: ['نام', 'برند', 'مدل', 'قیمت خرید', 'قیمت فروش'], optional: ['رنگ', 'رم', 'حافظه', 'موجودی', 'حداقل موجودی', 'نقطه سفارش'] };
+        case 'cheques':
+          return { required: ['شماره چک', 'بانک', 'مبلغ'], optional: ['صادرکننده', 'کد ملی صادرکننده', 'تاریخ سررسید', 'نوع', 'توضیحات'] };
+        case 'invoices':
+          return { required: ['مبلغ کل'], optional: ['شماره فاکتور', 'نوع', 'مشتری', 'تأمین‌کننده', 'تخفیف', 'پرداخت شده', 'نوع پرداخت', 'تاریخ', 'توضیحات'] };
+      }
+    };
+
+    const cols = getRequiredColumns();
 
     return (
       <div className="space-y-4">
         <h2 className="text-2xl font-bold">📥 ورود از اکسل</h2>
-        <div className="flex gap-2">
-          <button onClick={()=>setImportType('people')} className={`px-4 py-2 rounded-xl ${importType==='people'?'bg-blue-600 text-white':'bg-slate-700/50 text-slate-300'}`}>اشخاص</button>
-          <button onClick={()=>setImportType('products')} className={`px-4 py-2 rounded-xl ${importType==='products'?'bg-blue-600 text-white':'bg-slate-700/50 text-slate-300'}`}>کالاها</button>
+        <div className="flex gap-2 flex-wrap">
+          <button onClick={()=>{setImportType('people');setData([]);}} className={`px-4 py-2 rounded-xl ${importType==='people'?'bg-blue-600 text-white':'bg-slate-700/50 text-slate-300'}`}>👥 اشخاص</button>
+          <button onClick={()=>{setImportType('products');setData([]);}} className={`px-4 py-2 rounded-xl ${importType==='products'?'bg-blue-600 text-white':'bg-slate-700/50 text-slate-300'}`}>📦 کالاها</button>
+          <button onClick={()=>{setImportType('cheques');setData([]);}} className={`px-4 py-2 rounded-xl ${importType==='cheques'?'bg-blue-600 text-white':'bg-slate-700/50 text-slate-300'}`}>📝 چک‌ها</button>
+          <button onClick={()=>{setImportType('invoices');setData([]);}} className={`px-4 py-2 rounded-xl ${importType==='invoices'?'bg-blue-600 text-white':'bg-slate-700/50 text-slate-300'}`}>📋 فاکتورها</button>
         </div>
         <div className="bg-slate-800/60 rounded-2xl p-6 border border-slate-700/50">
           <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 mb-4">
             <h4 className="text-blue-400 font-bold mb-2">📋 ستون‌های الزامی:</h4>
-            {importType === 'people' ? (
-              <div className="flex flex-wrap gap-2"><span className="bg-blue-500/20 text-blue-300 px-3 py-1 rounded-lg text-sm">نام</span><span className="bg-slate-600/30 text-slate-400 px-3 py-1 rounded-lg text-xs">موبایل</span><span className="bg-slate-600/30 text-slate-400 px-3 py-1 rounded-lg text-xs">کد ملی</span><span className="bg-slate-600/30 text-slate-400 px-3 py-1 rounded-lg text-xs">شغل</span><span className="bg-slate-600/30 text-slate-400 px-3 py-1 rounded-lg text-xs">شهر</span><span className="bg-slate-600/30 text-slate-400 px-3 py-1 rounded-lg text-xs">بستانکار</span><span className="bg-slate-600/30 text-slate-400 px-3 py-1 rounded-lg text-xs">بدهکار</span></div>
-            ) : (
-              <div className="flex flex-wrap gap-2"><span className="bg-blue-500/20 text-blue-300 px-3 py-1 rounded-lg text-sm">نام</span><span className="bg-blue-500/20 text-blue-300 px-3 py-1 rounded-lg text-sm">برند</span><span className="bg-blue-500/20 text-blue-300 px-3 py-1 rounded-lg text-sm">مدل</span><span className="bg-blue-500/20 text-blue-300 px-3 py-1 rounded-lg text-sm">قیمت خرید</span><span className="bg-blue-500/20 text-blue-300 px-3 py-1 rounded-lg text-sm">قیمت فروش</span></div>
-            )}
+            <div className="flex flex-wrap gap-2 mb-2">
+              {cols.required.map(col => (
+                <span key={col} className="bg-blue-500/20 text-blue-300 px-3 py-1 rounded-lg text-sm">{col}</span>
+              ))}
+            </div>
+            <h4 className="text-slate-400 font-bold mb-2 text-sm">ستون‌های اختیاری:</h4>
+            <div className="flex flex-wrap gap-2">
+              {cols.optional.map(col => (
+                <span key={col} className="bg-slate-600/30 text-slate-400 px-3 py-1 rounded-lg text-xs">{col}</span>
+              ))}
+            </div>
           </div>
           <label className="flex items-center justify-center gap-2 bg-slate-600/50 border border-dashed border-slate-500 rounded-xl p-6 cursor-pointer hover:bg-slate-600">
             <span className="text-4xl">📁</span>
