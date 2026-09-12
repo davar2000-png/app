@@ -2,12 +2,12 @@
 
 سیستم حسابداری حرفه‌ای و کامل برای مدیریت فروشگاه خرید و فروش نقد و اقساط.
 
-## ✨ ویژگی‌ها
+## ✨ ویژگی‌های کامل
 
 ### 🏠 داشبورد
 - فروش و خرید امروز
 - سود کل و بدهی کل
-- تعداد کالاها و اشخاص
+- تعداد کالاها، اشخاص، سریال‌ها
 - ارزش انبار
 - هشدار چک‌های معوق
 - هشدار کالاهای کم‌موجود
@@ -22,19 +22,38 @@
 - مدیریت رنگ‌ها با color picker
 - کنترل موجودی (حداقل موجودی، نقطه سفارش)
 - اجازه موجودی منفی (قابل تنظیم)
+- قابلیت سریال‌دار
+
+### 📲 مدیریت سریال موبایل
+- ثبت سریال با IMEI
+- پیگیری وضعیت سریال (موجود/فروش رفته)
+- جستجوی سریال
+- محاسبه سود بر اساس سریال
+- جلوگیری از ثبت سریال تکراری
+
+### 📊 کاردکس انبار
+- کاردکس تعدادی
+- کاردکس ریالی
+- ورود/خروج/برگشت
+- مانده تعدادی و ریالی
+- فیلتر بر اساس کالا
 
 ### 👥 مدیریت اشخاص
-- انواع شخص: مشتری، تأمین‌کننده، ضامن، کارمند، سایر
+- 5 نوع شخص: مشتری، تأمین‌کننده، ضامن، کارمند، سایر
 - اطلاعات کامل: نام، موبایل، تلفن، کد ملی، شغل، شهر، آدرس، کارت بانکی
+- بارگذاری مدارک (کارت ملی، قرارداد و...)
+- مشاهده مدارک
 - جستجوی پیشرفته
 - فیلتر بر اساس نوع
-- ویرایش و حذف
+- حذف منطقی (No Physical Delete)
 
 ### 🛒 فاکتور خرید
 - انتخاب تأمین‌کننده
 - افزودن چندین کالا
+- انتخاب سریال برای کالاهای سریال‌دار
 - افزایش خودکار موجودی
-- محاسبه خودکار
+- پرداخت نقدی و اقساطی
+- ثبت در کاردکس
 
 ### 💰 فاکتور فروش
 - انتخاب مشتری
@@ -44,9 +63,24 @@
 - تخفیف
 - محاسبه سود هر کالا
 - کاهش خودکار موجودی
+- انتخاب سریال
+- کنترل هوشمند:
+  - هشدار قیمت کمتر از خرید (رنگ صورتی)
+  - هشدار موجودی ناکافی (رنگ زرد)
+  - تأیید قبل از ثبت
+
+### 📄 پیش‌فاکتور
+- ثبت پیش‌فاکتور
+- تبدیل به فاکتور فروش
+
+### 🔄 برگشت از خرید/فروش
+- برگشت کامل فاکتور
+- بازگشت موجودی
+- بازگشت سریال
+- ثبت فاکتور برگشتی
 
 ### 📋 لیست فاکتورها
-- فیلتر بر اساس نوع (خرید/فروش)
+- فیلتر خرید/فروش/پیش‌فاکتور
 - جستجو
 - نمایش اطلاعات کامل
 
@@ -55,6 +89,7 @@
 - شماره چک، بانک، مبلغ، صادرکننده
 - تاریخ سررسید
 - هشدار چک‌های معوق
+- حذف منطقی
 
 ### 💳 مدیریت اقساط
 - لیست تمام اقساط
@@ -68,8 +103,22 @@
 
 ### 📊 گزارش‌ها
 - خلاصه مالی (فروش، خرید، سود)
-- وضعیت چک‌ها
+- سود سریال‌دار
 - وضعیت انبار
+- ارزش انبار
+
+### 📜 ردیابی تغییرات (Audit Trail)
+- ثبت تمام عملیات مهم
+- CREATE, UPDATE, DELETE, CANCEL, RETURN, PAYMENT
+- جستجو در لاگ‌ها
+- نمایش تاریخ و جزئیات
+
+### 📥 ورود از اکسل
+- ورود اشخاص از فایل اکسل
+- پیش‌نمایش داده‌ها
+- اعتبارسنجی
+- نمایش خطاها
+- پشتیبانی از .xlsx و .xls
 
 ### ⚙️ تنظیمات
 - پشتیبان‌گیری (Export JSON)
@@ -113,6 +162,7 @@ npm run build
 - **TypeScript** - تایپ‌سیف
 - **Vite** - بیلد سریع
 - **Tailwind CSS** - استایل‌دهی
+- **XLSX** - خواندن فایل اکسل
 - **localStorage** - ذخیره‌سازی محلی
 
 ## 📱 ویژگی‌های رابط کاربری
@@ -123,6 +173,7 @@ npm run build
 ✅ تم تاریک  
 ✅ فونت وزیرمتن  
 ✅ منوی کناری قابل جمع شدن  
+✅ 16 بخش مجزا  
 
 ## 📊 ساختار داده‌ها
 
@@ -131,7 +182,8 @@ npm run build
 {
   id, type, name, familyName, nationalId, job,
   employeeId, phone, mobile, bankCard, address,
-  city, image, notes, creditor, debtor, createdAt
+  city, image, notes, creditor, debtor,
+  documents: PersonDocument[], isDeleted, createdAt
 }
 ```
 
@@ -141,7 +193,16 @@ npm run build
   id, code, name, categoryId, brandId, modelId,
   color, ram, storage, buyPrice, sellPrice,
   stock, minStock, reorderPoint, allowNegativeStock,
-  description, createdAt
+  hasSerial, isDeleted, createdAt
+}
+```
+
+### SerialItem (سریال)
+```typescript
+{
+  id, productId, serialNumber, imei1, imei2,
+  purchasePrice, purchaseInvoiceId, status,
+  saleInvoiceId, soldDate, soldPrice, profit, createdAt
 }
 ```
 
@@ -150,16 +211,8 @@ npm run build
 {
   id, invoiceNumber, type, personId, items,
   total, discount, paid, remaining, paymentType,
-  installments, status, description, date, createdAt
-}
-```
-
-### Cheque (چک)
-```typescript
-{
-  id, chequeNumber, bankName, amount, issuerName,
-  issuerNationalId, dueDate, type, status,
-  relatedInvoiceId, relatedPersonId, description, createdAt
+  installments, status, returnInvoiceId,
+  description, date, createdAt
 }
 ```
 

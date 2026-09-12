@@ -15,7 +15,17 @@ export interface Person {
   notes?: string;
   creditor: number;
   debtor: number;
+  documents: PersonDocument[];
+  isDeleted: boolean;
   createdAt: string;
+}
+
+export interface PersonDocument {
+  id: string;
+  name: string;
+  type: string;
+  data: string;
+  date: string;
 }
 
 export interface ProductCategory {
@@ -58,28 +68,48 @@ export interface Product {
   minStock: number;
   reorderPoint: number;
   allowNegativeStock: boolean;
+  hasSerial: boolean;
   description?: string;
+  isDeleted: boolean;
   createdAt: string;
 }
 
-export interface ProductItem {
+export interface SerialItem {
   id: string;
   productId: string;
   serialNumber: string;
+  imei1?: string;
+  imei2?: string;
   purchasePrice: number;
   purchaseInvoiceId?: string;
   status: 'in_stock' | 'sold' | 'returned';
   saleInvoiceId?: string;
   soldDate?: string;
+  soldPrice?: number;
+  profit?: number;
   createdAt: string;
+}
+
+export interface CardexEntry {
+  id: string;
+  productId: string;
+  type: 'purchase_in' | 'sale_out' | 'return_in' | 'return_out' | 'adjustment';
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  balance: number;
+  balanceValue: number;
+  invoiceId?: string;
+  date: string;
+  description?: string;
 }
 
 export interface InvoiceItem {
   id: string;
   productId: string;
   productItemId?: string;
-  productName: string;
   serialNumber?: string;
+  productName: string;
   quantity: number;
   unitPrice: number;
   buyPrice?: number;
@@ -109,6 +139,7 @@ export interface Invoice {
   paymentType: 'cash' | 'installment' | 'mixed' | 'cheque';
   installments?: Installment[];
   status: 'active' | 'cancelled' | 'returned';
+  returnInvoiceId?: string;
   description?: string;
   date: string;
   createdAt: string;
@@ -127,6 +158,7 @@ export interface Cheque {
   relatedInvoiceId?: string;
   relatedPersonId?: string;
   description?: string;
+  isDeleted: boolean;
   createdAt: string;
 }
 
@@ -139,55 +171,30 @@ export interface Bank {
   createdAt: string;
 }
 
-export interface BankTransaction {
-  id: string;
-  bankId: string;
-  type: 'deposit' | 'withdrawal' | 'transfer';
-  amount: number;
-  description?: string;
-  relatedChequeId?: string;
-  date: string;
-  createdAt: string;
-}
-
-export interface AccountingEntry {
-  id: string;
-  date: string;
-  description: string;
-  entityType: string;
-  entityId: string;
-  items: AccountingEntryItem[];
-  createdAt: string;
-}
-
-export interface AccountingEntryItem {
-  id: string;
-  accountCode: string;
-  accountName: string;
-  debit: number;
-  credit: number;
-  description?: string;
-}
-
 export interface AuditLog {
   id: string;
-  action: string;
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'CANCEL' | 'RETURN' | 'PAYMENT';
   entityType: string;
   entityId: string;
-  oldValue?: string;
-  newValue?: string;
+  entityName?: string;
+  details?: string;
   timestamp: string;
 }
 
-export type Section = 
-  | 'dashboard' 
-  | 'inventory' 
-  | 'people' 
-  | 'purchase' 
-  | 'sale' 
-  | 'invoices' 
-  | 'cheques' 
+export type Section =
+  | 'dashboard'
+  | 'inventory'
+  | 'serials'
+  | 'cardex'
+  | 'people'
+  | 'purchase'
+  | 'sale'
+  | 'invoices'
+  | 'returns'
+  | 'cheques'
   | 'installments'
   | 'banks'
   | 'reports'
+  | 'audit'
+  | 'import'
   | 'settings';
