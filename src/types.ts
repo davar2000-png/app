@@ -1,3 +1,23 @@
+export interface Person {
+  id: string;
+  type: 'customer' | 'supplier' | 'guarantor' | 'employee' | 'other';
+  name: string;
+  familyName?: string;
+  nationalId?: string;
+  job?: string;
+  employeeId?: string;
+  phone?: string;
+  mobile?: string;
+  bankCard?: string;
+  address?: string;
+  city?: string;
+  image?: string;
+  notes?: string;
+  creditor: number;
+  debtor: number;
+  createdAt: string;
+}
+
 export interface ProductCategory {
   id: string;
   name: string;
@@ -38,63 +58,136 @@ export interface Product {
   minStock: number;
   reorderPoint: number;
   allowNegativeStock: boolean;
-  serialNumbers: string[];
   description?: string;
   createdAt: string;
 }
 
-export interface Customer {
+export interface ProductItem {
   id: string;
-  name: string;
-  phone: string;
-  address?: string;
-  nationalId?: string;
-  job?: string;
-  city?: string;
-  creditor?: number;
-  debtor?: number;
-  image?: string;
-  notes?: string;
+  productId: string;
+  serialNumber: string;
+  purchasePrice: number;
+  purchaseInvoiceId?: string;
+  status: 'in_stock' | 'sold' | 'returned';
+  saleInvoiceId?: string;
+  soldDate?: string;
   createdAt: string;
-}
-
-export interface Invoice {
-  id: string;
-  invoiceNumber: string;
-  type: 'purchase' | 'sale';
-  customerId: string;
-  items: InvoiceItem[];
-  total: number;
-  paid: number;
-  remaining: number;
-  paymentType: 'cash' | 'installment';
-  installments?: Installment[];
-  date: string;
-  description?: string;
 }
 
 export interface InvoiceItem {
   id: string;
   productId: string;
+  productItemId?: string;
   productName: string;
+  serialNumber?: string;
   quantity: number;
   unitPrice: number;
+  buyPrice?: number;
   total: number;
+  profit?: number;
 }
 
 export interface Installment {
   id: string;
   amount: number;
   dueDate: string;
+  paidAmount: number;
   paidDate?: string;
-  status: 'pending' | 'paid' | 'overdue';
+  status: 'pending' | 'paid' | 'overdue' | 'partial';
 }
 
-export interface Payment {
+export interface Invoice {
   id: string;
-  invoiceId: string;
-  amount: number;
-  method: 'cash' | 'check' | 'transfer';
+  invoiceNumber: string;
+  type: 'purchase' | 'sale' | 'proforma';
+  personId: string;
+  items: InvoiceItem[];
+  total: number;
+  discount: number;
+  paid: number;
+  remaining: number;
+  paymentType: 'cash' | 'installment' | 'mixed' | 'cheque';
+  installments?: Installment[];
+  status: 'active' | 'cancelled' | 'returned';
+  description?: string;
   date: string;
+  createdAt: string;
+}
+
+export interface Cheque {
+  id: string;
+  chequeNumber: string;
+  bankName: string;
+  amount: number;
+  issuerName?: string;
+  issuerNationalId?: string;
+  dueDate: string;
+  type: 'received' | 'paid';
+  status: 'pending' | 'cashed' | 'bounced' | 'cancelled';
+  relatedInvoiceId?: string;
+  relatedPersonId?: string;
+  description?: string;
+  createdAt: string;
+}
+
+export interface Bank {
+  id: string;
+  name: string;
+  accountNumber: string;
+  cardNumber?: string;
+  balance: number;
+  createdAt: string;
+}
+
+export interface BankTransaction {
+  id: string;
+  bankId: string;
+  type: 'deposit' | 'withdrawal' | 'transfer';
+  amount: number;
+  description?: string;
+  relatedChequeId?: string;
+  date: string;
+  createdAt: string;
+}
+
+export interface AccountingEntry {
+  id: string;
+  date: string;
+  description: string;
+  entityType: string;
+  entityId: string;
+  items: AccountingEntryItem[];
+  createdAt: string;
+}
+
+export interface AccountingEntryItem {
+  id: string;
+  accountCode: string;
+  accountName: string;
+  debit: number;
+  credit: number;
   description?: string;
 }
+
+export interface AuditLog {
+  id: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  oldValue?: string;
+  newValue?: string;
+  timestamp: string;
+}
+
+export type Section = 
+  | 'dashboard' 
+  | 'inventory' 
+  | 'people' 
+  | 'purchase' 
+  | 'sale' 
+  | 'invoices' 
+  | 'cheques' 
+  | 'installments'
+  | 'banks'
+  | 'reports'
+  | 'settings';
