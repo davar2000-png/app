@@ -1033,7 +1033,9 @@ export default function App() {
           const obj: any = {};
           h.forEach((key, i) => { obj[key.trim()] = row[i]; });
           
-          const name = String(obj['نام'] || obj['نام و نام خانوادگی'] || obj['Name'] || '').trim();
+          // ساختار فایل طرف حساب‌ها:
+          // توضیحات | آدرس | موبایل معرف | معرف | گروه | ایمیل | تلفن | شهر | کد ملی / شناسه ملی | موبایل | بدهکار | بستانکار | کد | نام | شماره مشتری | | ردیف
+          const name = String(obj['نام'] || obj['نام '] || '').trim();
           
           if (!name) {
             skipped++;
@@ -1045,9 +1047,10 @@ export default function App() {
             id: generateId(),
             type: 'customer',
             name: name,
-            mobile: String(obj['موبایل'] || obj['تلفن'] || obj['Phone'] || obj['موبایل '] || '').trim(),
-            nationalId: String(obj['کد ملی'] || obj['کد ملی '] || '').trim(),
-            job: String(obj['شغل'] || obj['شغل '] || '').trim(),
+            mobile: String(obj['موبایل'] || obj['موبایل '] || '').trim(),
+            phone: String(obj['تلفن'] || obj['تلفن '] || '').trim(),
+            nationalId: String(obj['کد ملی / شناسه ملی'] || obj['کد ملی / شناسه ملی '] || '').trim(),
+            job: String(obj['معرف'] || obj['معرف '] || '').trim(),
             city: String(obj['شهر'] || obj['شهر '] || '').trim(),
             address: String(obj['آدرس'] || obj['آدرس '] || '').trim(),
             creditor: Number(obj['بستانکار'] || obj['بستانکار '] || 0),
@@ -1072,59 +1075,44 @@ export default function App() {
         
       } else if (importType === 'products') {
         const newProducts: Product[] = [];
-        const newBrands: ProductBrand[] = [];
-        const newModels: ProductModel[] = [];
         let skipped = 0;
         
         data.forEach((row, index) => {
           const obj: any = {};
           h.forEach((key, i) => { obj[key.trim()] = row[i]; });
           
-          // Find or create brand
-          const brandName = String(obj['برند'] || obj['Brand'] || obj['برند '] || '').trim();
-          let brand = brands.find(b => b.name === brandName) || newBrands.find(b => b.name === brandName);
-          if (!brand && brandName) {
-            brand = { id: generateId(), categoryId: 'phone', name: brandName };
-            newBrands.push(brand);
-          }
+          // ساختار فایل کالاها:
+          // قیمت خرید | قیمت خرید | واحد | مقدار فعلی | کد | نام | ردیف
+          const name = String(obj['نام'] || obj['نام '] || '').trim();
+          const code = String(obj['کد'] || obj['کد '] || '').trim();
+          const buyPrice = Number(obj['قیمت خرید'] || obj['قیمت خرید '] || 0);
+          const stock = Number(obj['مقدار فعلی'] || obj['مقدار فعلی '] || 0);
           
-          // Find or create model
-          const modelName = String(obj['مدل'] || obj['Model'] || obj['مدل '] || '').trim();
-          let model = models.find(m => m.name === modelName) || newModels.find(m => m.name === modelName);
-          if (!model && modelName && brand) {
-            model = { id: generateId(), brandId: brand.id, name: modelName };
-            newModels.push(model);
-          }
-          
-          const buyPrice = Number(obj['قیمت خرید'] || obj['قیمت خرید '] || obj['Buy Price'] || 0);
-          const sellPrice = Number(obj['قیمت فروش'] || obj['قیمت فروش '] || obj['Sell Price'] || 0);
-          
-          const productName = [brandName, modelName, obj['رنگ'], obj['رم'] && `${obj['رم']}GB`, obj['حافظه'] && `${obj['حافظه']}GB`].filter(Boolean).join(' - ');
-          
-          if (!productName || !buyPrice || !sellPrice) {
+          if (!name) {
             skipped++;
-            console.warn(`Row ${index + 2}: Skipped - missing required fields`, { productName, buyPrice, sellPrice });
+            console.warn(`Row ${index + 2}: Skipped - no name`);
             return;
           }
           
           const product: Product = {
             id: generateId(),
-            code: generateProductCode(),
-            name: productName,
-            categoryId: 'phone',
-            brandId: brand?.id || '',
-            modelId: model?.id || '',
-            color: String(obj['رنگ'] || obj['رنگ '] || '').trim(),
-            ram: String(obj['رم'] || obj['رم '] || '').trim(),
-            storage: String(obj['حافظه'] || obj['حافظه '] || '').trim(),
+            code: code || generateProductCode(),
+            name: name,
+            categoryId: 'misc',
+            brandId: '',
+            modelId: '',
+            color: '',
+            ram: '',
+            storage: '',
             buyPrice: buyPrice,
-            sellPrice: sellPrice,
-            stock: Number(obj['موجودی'] || obj['موجودی '] || 0),
-            minStock: Number(obj['حداقل موجودی'] || obj['حداقل موجودی '] || 0),
-            reorderPoint: Number(obj['نقطه سفارش'] || obj['نقطه سفارش '] || 0),
+            sellPrice: buyPrice, // قیمت فروش = قیمت خرید (می‌تواند بعداً ویرایش شود)
+            stock: stock,
+            minStock: 0,
+            reorderPoint: 0,
             allowNegativeStock: false,
             hasSerial: false,
             isDeleted: false,
+            description: String(obj['واحد'] || obj['واحد '] || ''),
             createdAt: new Date().toISOString(),
           };
           
@@ -1132,15 +1120,13 @@ export default function App() {
         });
         
         if (newProducts.length === 0) {
-          alert(`❌ هیچ کالایی وارد نشد!\n${skipped} رکورد به دلیل نبود فیلدهای الزامی رد شد.\nفیلدهای الزامی: نام، برند، مدل، قیمت خرید، قیمت فروش\nلطفاً نام ستون‌ها را بررسی کنید.`);
+          alert(`❌ هیچ کالایی وارد نشد!\n${skipped} رکورد به دلیل نبود نام رد شد.\nلطفاً نام ستون‌ها را بررسی کنید.`);
           return;
         }
         
-        if (newBrands.length > 0) setBrands(prev => [...prev, ...newBrands]);
-        if (newModels.length > 0) setModels(prev => [...prev, ...newModels]);
         setProducts(prev => [...newProducts, ...prev]);
         log('CREATE', 'import', generateId(), `ورود ${newProducts.length} کالا از اکسل`);
-        alert(`✅ ${newProducts.length} کالا وارد شد${skipped > 0 ? `\n⚠️ ${skipped} رکورد رد شد` : ''}${newBrands.length > 0 ? `\n🏷️ ${newBrands.length} برند جدید ایجاد شد` : ''}${newModels.length > 0 ? `\n📱 ${newModels.length} مدل جدید ایجاد شد` : ''}`);
+        alert(`✅ ${newProducts.length} کالا وارد شد${skipped > 0 ? `\n⚠️ ${skipped} رکورد رد شد` : ''}`);
         
       } else if (importType === 'cheques') {
         const newCheques: Cheque[] = [];
@@ -1150,9 +1136,14 @@ export default function App() {
           const obj: any = {};
           h.forEach((key, i) => { obj[key.trim()] = row[i]; });
           
-          const chequeNumber = String(obj['شماره چک'] || obj['شماره چک '] || obj['شماره'] || obj['شماره '] || '').trim();
-          const bankName = String(obj['بانک'] || obj['Bank'] || obj['بانک '] || '').trim();
-          const amount = Number(obj['مبلغ'] || obj['مبلغ '] || obj['Amount'] || 0);
+          // ساختار فایل چک‌ها:
+          // تاریخ تغییر آخرین وضعیت | آخرین وضعیت | شماره چک | | تاریخ | بانک | مبلغ | نام طرف حساب | ردیف
+          const chequeNumber = String(obj['شماره چک'] || obj['شماره چک '] || '').trim();
+          const bankName = String(obj['بانک'] || obj['بانک '] || '').trim();
+          const amount = Number(obj['مبلغ'] || obj['مبلغ '] || 0);
+          const issuerName = String(obj['نام طرف حساب'] || obj['نام طرف حساب '] || '').trim();
+          const dueDate = String(obj['تاریخ'] || obj['تاریخ '] || getTodayDate()).trim();
+          const status = String(obj['آخرین وضعیت'] || obj['آخرین وضعیت '] || 'pending').trim();
           
           if (!chequeNumber || !bankName || !amount) {
             skipped++;
@@ -1160,17 +1151,23 @@ export default function App() {
             return;
           }
           
+          // تبدیل وضعیت
+          let chequeStatus: 'pending' | 'cashed' | 'bounced' | 'cancelled' = 'pending';
+          if (status.includes('وصول') || status.includes('نقد')) chequeStatus = 'cashed';
+          else if (status.includes('برگشت') || status.includes('بounced')) chequeStatus = 'bounced';
+          else if (status.includes('لغو') || status.includes('cancelled')) chequeStatus = 'cancelled';
+          
           const cheque: Cheque = {
             id: generateId(),
             chequeNumber: chequeNumber,
             bankName: bankName,
             amount: amount,
-            issuerName: String(obj['صادرکننده'] || obj['نام صادرکننده'] || obj['صادرکننده '] || '').trim(),
-            issuerNationalId: String(obj['کد ملی صادرکننده'] || obj['کد ملی صادرکننده '] || '').trim(),
-            dueDate: String(obj['تاریخ سررسید'] || obj['سررسید'] || obj['تاریخ'] || obj['تاریخ سررسید '] || getTodayDate()).trim(),
-            type: String(obj['نوع'] || obj['نوع '] || 'دریافتی').includes('پرداخت') ? 'paid' : 'received',
-            status: 'pending',
-            description: String(obj['توضیحات'] || obj['توضیحات '] || '').trim(),
+            issuerName: issuerName,
+            issuerNationalId: '',
+            dueDate: dueDate,
+            type: 'received', // پیش‌فرض دریافتی
+            status: chequeStatus,
+            description: String(obj['تاریخ تغییر آخرین وضعیت'] || '').trim(),
             isDeleted: false,
             createdAt: new Date().toISOString(),
           };
@@ -1246,11 +1243,11 @@ export default function App() {
     const getRequiredColumns = () => {
       switch (importType) {
         case 'people':
-          return { required: ['نام'], optional: ['موبایل', 'کد ملی', 'شغل', 'شهر', 'آدرس', 'بستانکار', 'بدهکار', 'توضیحات'] };
+          return { required: ['نام'], optional: ['موبایل', 'تلفن', 'کد ملی / شناسه ملی', 'معرف', 'گروه', 'ایمیل', 'شهر', 'آدرس', 'بستانکار', 'بدهکار', 'توضیحات', 'شماره مشتری', 'کد'] };
         case 'products':
-          return { required: ['نام', 'برند', 'مدل', 'قیمت خرید', 'قیمت فروش'], optional: ['رنگ', 'رم', 'حافظه', 'موجودی', 'حداقل موجودی', 'نقطه سفارش'] };
+          return { required: ['نام'], optional: ['کد', 'قیمت خرید', 'مقدار فعلی', 'واحد'] };
         case 'cheques':
-          return { required: ['شماره چک', 'بانک', 'مبلغ'], optional: ['صادرکننده', 'کد ملی صادرکننده', 'تاریخ سررسید', 'نوع', 'توضیحات'] };
+          return { required: ['شماره چک', 'بانک', 'مبلغ'], optional: ['تاریخ', 'نام طرف حساب', 'آخرین وضعیت', 'تاریخ تغییر آخرین وضعیت'] };
         case 'invoices':
           return { required: ['مبلغ کل'], optional: ['شماره فاکتور', 'نوع', 'مشتری', 'تأمین‌کننده', 'تخفیف', 'پرداخت شده', 'نوع پرداخت', 'تاریخ', 'توضیحات'] };
       }
