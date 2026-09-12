@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Product, Customer, Invoice, InvoiceItem, Payment, CustomerGroup, ProductCategory, ProductBrand, ProductModel, ProductColor, Reminder, DailyNote, Check } from './types';
+import type { Product, Customer, Invoice, InvoiceItem, Payment, CustomerGroup, ProductCategory, ProductBrand, ProductModel, ProductColor, Reminder, DailyNote, Check } from './types';
 import { generateId, formatNumber, formatJalaliDate, getTodayJalali, generateInvoiceNumber } from './utils';
 
 function useLocalStorage<T>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
@@ -16,7 +16,6 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, React.Dispatch<Re
 }
 
 export default function App() {
-  // State
   const [products, setProducts] = useLocalStorage<Product[]>('products', []);
   const [customers, setCustomers] = useLocalStorage<Customer[]>('customers', []);
   const [invoices, setInvoices] = useLocalStorage<Invoice[]>('invoices', []);
@@ -40,7 +39,6 @@ export default function App() {
   const [activeSection, setActiveSection] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // Backup
   const handleExport = () => {
     const data = { products, customers, invoices, categories, brands, models, colors, customerGroups, reminders, notes, checks, exportDate: new Date().toISOString() };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -66,7 +64,6 @@ export default function App() {
     reader.readAsText(file);
   };
 
-  // Dashboard
   const Dashboard = () => {
     const todayInvoices = invoices.filter(inv => inv.date === getTodayJalali());
     const todaySales = todayInvoices.filter(inv => inv.type === 'sale').reduce((sum, inv) => sum + inv.total, 0);
@@ -101,7 +98,6 @@ export default function App() {
     );
   };
 
-  // Purchase Invoice Form
   const PurchaseInvoiceForm = () => {
     const [invoiceNumber, setInvoiceNumber] = useState(generateInvoiceNumber('purchase'));
     const [supplierId, setSupplierId] = useState('');
@@ -201,7 +197,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* طرف حساب */}
           <div className="bg-slate-700/30 rounded-xl p-4 mb-4">
             <div className="flex justify-between mb-3">
               <h4 className="text-white font-bold">👤 طرف حساب</h4>
@@ -221,7 +216,6 @@ export default function App() {
             </select>
           </div>
 
-          {/* کالا */}
           <div className="bg-slate-700/30 rounded-xl p-4 mb-4">
             <h4 className="text-white font-bold mb-3">➕ افزودن کالا</h4>
             <input type="text" value={productSearch} onChange={e => setProductSearch(e.target.value)} placeholder="🔍 جستجوی کالا..." className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-4 py-3 text-white mb-3" />
@@ -236,7 +230,6 @@ export default function App() {
             <button type="button" onClick={handleAddItem} className="mt-3 w-full bg-blue-600 text-white py-2 rounded-lg">➕ افزودن</button>
           </div>
 
-          {/* لیست کالاها */}
           {items.length > 0 && (
             <div className="bg-slate-700/30 rounded-xl p-4 mb-4">
               <h4 className="text-white font-bold mb-3">📋 اقلام فاکتور</h4>
@@ -257,7 +250,6 @@ export default function App() {
             </div>
           )}
 
-          {/* تسویه */}
           <div className="bg-slate-700/30 rounded-xl p-4 mb-4">
             <div className="flex justify-between mb-3">
               <h4 className="text-white font-bold">💳 تسویه حساب</h4>
@@ -289,7 +281,6 @@ export default function App() {
     );
   };
 
-  // Invoice List
   const InvoiceList = () => {
     const handleUpdateDelivery = (id: string, status: 'pending'|'received'|'partial') => {
       setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, deliveryStatus: status, deliveryDate: status === 'received' ? getTodayJalali() : inv.deliveryDate } : inv));
@@ -340,7 +331,6 @@ export default function App() {
     );
   };
 
-  // Settings
   const Settings = () => (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">⚙️ تنظیمات</h2>
@@ -355,7 +345,6 @@ export default function App() {
     </div>
   );
 
-  // Render
   const renderContent = () => {
     switch (activeSection) {
       case 'dashboard': return <Dashboard />;
@@ -368,7 +357,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
-      {/* Sidebar */}
       <div className={`fixed top-0 right-0 h-full bg-slate-900/95 backdrop-blur-lg border-l border-slate-700/50 transition-all duration-300 z-40 ${sidebarOpen ? 'w-72' : 'w-0 lg:w-20'}`}>
         <div className="flex flex-col h-full">
           <div className="p-4 border-b border-slate-700/50">
@@ -393,7 +381,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className={`transition-all duration-300 ${sidebarOpen ? 'lg:mr-72' : 'lg:mr-20'}`}>
         <header className="bg-slate-900/80 backdrop-blur-lg border-b border-slate-700/50 sticky top-0 z-30">
           <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
