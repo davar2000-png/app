@@ -371,21 +371,56 @@ export default function App() {
           <div className="bg-slate-800/60 rounded-2xl p-6 border border-slate-700/50">
             <h3 className="text-lg font-bold mb-4">{editId ? '✏️ ویرایش' : '➕ ثبت'} شخص</h3>
             
+            {/* نوع شخص - اولین فیلد */}
+            <div className="mb-4 bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+              <label className="text-blue-400 text-sm font-bold mb-2 block">🏷️ نوع شخص *</label>
+              <select 
+                value={form.type || 'customer'} 
+                onChange={e => {
+                  const newType = e.target.value;
+                  setForm({ 
+                    ...form, 
+                    type: newType as any,
+                    // اگر فروشنده باشد، ضامن حذف شود
+                    guarantor: newType === 'supplier' ? undefined : form.guarantor
+                  });
+                }} 
+                className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white"
+              >
+                <option value="customer">🛒 خریدار (مشتری)</option>
+                <option value="supplier">🏪 فروشنده (تأمین‌کننده)</option>
+                <option value="pensioner">💰 مستمری‌بگیر</option>
+                <option value="employee_irib">📺 کارمند صدا و سیما</option>
+                <option value="employee_azad">🎓 کارمند دانشگاه آزاد</option>
+                <option value="employee_mohaghegh">🎓 کارمند دانشگاه محقق اردبیلی</option>
+                <option value="employee_faranja">👮 پرسنل فراجا</option>
+                <option value="welfare_card">🎫 دارنده کارت رفاهی (اوراق گام)</option>
+              </select>
+            </div>
+            
             {/* Image Upload - 3:2 ratio */}
             <div className="mb-4">
               <ImageUpload image={form.image} onImageChange={(img) => setForm({...form, image: img || undefined})} label="📷 عکس پروفایل (از روی کارت ملی)" size="md" />
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value as any })} className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white">
-                <option value="customer">مشتری</option><option value="supplier">تأمین‌کننده</option><option value="guarantor">ضامن</option><option value="employee">کارمند</option><option value="other">سایر</option>
-              </select>
+              {/* نام و نام خانوادگی در یک فیلد */}
+              <input 
+                value={`${form.name || ''} ${form.familyName || ''}`.trim()} 
+                onChange={e => {
+                  const fullName = e.target.value.trim();
+                  const parts = fullName.split(' ');
+                  const firstName = parts[0] || '';
+                  const lastName = parts.slice(1).join(' ') || '';
+                  setForm({...form, name: firstName, familyName: lastName});
+                }} 
+                placeholder="نام و نام خانوادگی *" 
+                className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white md:col-span-2" 
+              />
               <select value={form.groupId||''} onChange={e=>setForm({...form,groupId:e.target.value||undefined})} className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white">
                 <option value="">بدون گروه</option>
                 {personGroups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
-              <input value={form.name||''} onChange={e=>setForm({...form,name:e.target.value})} placeholder="نام *" className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
-              <input value={form.familyName||''} onChange={e=>setForm({...form,familyName:e.target.value})} placeholder="نام خانوادگی" className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
               <input value={form.mobile||''} onChange={e=>setForm({...form,mobile:e.target.value})} placeholder="موبایل *" className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
               <input value={form.phone||''} onChange={e=>setForm({...form,phone:e.target.value})} placeholder="تلفن" className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
               <input value={form.nationalId||''} onChange={e=>setForm({...form,nationalId:e.target.value})} placeholder="کد ملی" className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
@@ -415,7 +450,8 @@ export default function App() {
               )}
             </div>
             
-            {/* Guarantor Section */}
+            {/* Guarantor Section - فقط برای غیر فروشنده */}
+            {form.type !== 'supplier' && (
             <div className="mt-4 border-2 border-amber-500/30 rounded-xl p-5 bg-gradient-to-br from-amber-500/5 to-amber-600/5">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
@@ -552,6 +588,7 @@ export default function App() {
                 </div>
               )}
             </div>
+            )}
             
             <textarea value={form.notes||''} onChange={e=>setForm({...form,notes:e.target.value})} placeholder="توضیحات" rows={2} className="mt-3 w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
             <button onClick={save} className="mt-3 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl">💾 ذخیره</button>
