@@ -31,6 +31,16 @@ dist-ssr
 # Backup files
 *.bak
 *.backup
+backups/
+
+# Large files
+*.db
+*.sqlite
+*.sqlite3
+
+# OS files
+Thumbs.db
+.DS_Store
 node_modules/
 .next/
 dist/

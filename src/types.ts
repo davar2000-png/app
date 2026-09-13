@@ -144,6 +144,7 @@ export interface Invoice {
   installments?: Installment[];
   status: 'active' | 'cancelled' | 'returned';
   returnInvoiceId?: string;
+  tags?: string[];
   description?: string;
   date: string;
   createdAt: string;
@@ -241,6 +242,19 @@ export interface StoreSettings {
   logo?: string;
   printFooter: string;
   defaultPaper: 'A4' | 'A5';
+}
+
+export interface SecuritySettings {
+  pinEnabled: boolean;
+  pinHash?: string;
+  autoLockMinutes: number;
+  lastActivity?: string;
+}
+
+export interface InvoiceTag {
+  id: string;
+  name: string;
+  color: string;
 }
 
 export interface AuditLog {

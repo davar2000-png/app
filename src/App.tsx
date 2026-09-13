@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import type {
   Person, PersonDocument, PersonGroup, Guarantor, Product, CardexEntry,
   Invoice, InvoiceItem, Installment, Cheque, Bank,
-  Payment, ReturnInvoice, Proforma, StoreSettings,
+  Payment, ReturnInvoice, Proforma, StoreSettings, SecuritySettings, InvoiceTag,
   ProductCategory, ProductBrand, ProductModel, ProductColor,
   AuditLog, Section
 } from './types';
@@ -76,9 +76,20 @@ export default function App() {
     { id: 'white', name: 'سفید', code: '#ffffff' },
   ]);
   const [audit, setAudit] = useLS<AuditLog[]>('tk_audit', []);
+  const [securitySettings, setSecuritySettings] = useLS<SecuritySettings>('tk_security', {
+    pinEnabled: false,
+    autoLockMinutes: 10,
+  });
+  const [invoiceTags, setInvoiceTags] = useLS<InvoiceTag[]>('tk_tags', [
+    { id: 'urgent', name: 'فوری', color: '#ef4444' },
+    { id: 'vip', name: 'VIP', color: '#f59e0b' },
+    { id: 'wholesale', name: 'عمده', color: '#10b981' },
+  ]);
   const [section, setSection] = useState<Section>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const [isLocked, setIsLocked] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const log = (action: AuditLog['action'], entityType: string, entityId: string, entityName?: string, details?: string) => {
     setAudit(prev => [{ id: generateId(), action, entityType, entityId, entityName, details, timestamp: new Date().toISOString() }, ...prev].slice(0, 5000));
@@ -166,9 +177,29 @@ export default function App() {
     const overdueCheques = cheques.filter(c => !c.isDeleted && c.type === 'received' && c.status === 'pending' && isOverdue(c.dueDate));
     const invValue = products.filter(p => !p.isDeleted).reduce((s, p) => s + (p.stock * p.buyPrice), 0);
 
+    // نمودار فروش ۷ روز اخیر
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (6 - i));
+      return date.toISOString().split('T')[0];
+    });
+    const salesByDay = last7Days.map(date => 
+      invoices.filter(i => i.date === date && i.type === 'sale' && i.status === 'active').reduce((s, i) => s + i.total, 0)
+    );
+    const maxSale = Math.max(...salesByDay, 1);
+
+    // یادآوری‌ها
+    const overdueInstallments = invoices.flatMap(i => i.installments || []).filter(i => i.status === 'pending' && isOverdue(i.dueDate));
+    const reminders = [
+      ...overdueCheques.map(c => ({ type: 'چک', person: people.find(p => p.id === c.relatedPersonId)?.name || 'نامشخص', amount: c.amount, date: c.dueDate })),
+      ...overdueInstallments.map(i => ({ type: 'قسط', person: 'نامشخص', amount: i.amount, date: i.dueDate })),
+    ];
+
     return (
       <div className="space-y-6">
         <h2 className="text-2xl font-bold">🏠 داشبورد</h2>
+        
+        {/* آمار کلی */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { l: 'فروش امروز', v: formatNumber(todaySales), c: 'from-emerald-600 to-emerald-800', i: '💰' },
@@ -186,6 +217,42 @@ export default function App() {
             </div>
           ))}
         </div>
+
+        {/* نمودار فروش ۷ روز */}
+        <div className="bg-slate-800/60 rounded-2xl p-6 border border-slate-700/50">
+          <h3 className="text-lg font-bold mb-4">📊 نمودار فروش ۷ روز اخیر</h3>
+          <div className="flex items-end justify-between gap-2 h-40">
+            {salesByDay.map((sale, i) => (
+              <div key={i} className="flex-1 flex flex-col items-center gap-2">
+                <div className="w-full bg-gradient-to-t from-emerald-600 to-emerald-400 rounded-t-lg transition-all hover:from-emerald-500 hover:to-emerald-300" style={{ height: `${(sale / maxSale) * 100}%`, minHeight: sale > 0 ? '20px' : '0' }} title={`${formatNumber(sale)} تومان`} />
+                <span className="text-xs text-slate-400">{new Date(last7Days[i]).toLocaleDateString('fa-IR', { weekday: 'short' })}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* یادآوری‌ها */}
+        {reminders.length > 0 && (
+          <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-4">
+            <h3 className="text-rose-400 font-bold mb-3">🔔 یادآوری‌ها ({reminders.length})</h3>
+            <div className="space-y-2">
+              {reminders.slice(0, 5).map((r, i) => (
+                <div key={i} className="flex justify-between items-center text-sm bg-slate-800/50 rounded-lg p-3">
+                  <div>
+                    <span className="text-rose-400 font-bold">{r.type}</span>
+                    <span className="text-slate-300 mr-2">- {r.person}</span>
+                  </div>
+                  <div className="text-left">
+                    <p className="text-rose-400 font-bold">{formatNumber(r.amount)} تومان</p>
+                    <p className="text-slate-400 text-xs">{jalaliDate(r.date)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* کم‌موجود */}
         {lowStock.length > 0 && (
           <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4">
             <h3 className="text-amber-400 font-bold mb-2">⚠️ کم‌موجود ({lowStock.length})</h3>
@@ -841,8 +908,17 @@ export default function App() {
 
   // Settings Section
   const SettingsSection = () => {
+    const [newTagName, setNewTagName] = useState('');
+    const [newTagColor, setNewTagColor] = useState('#3b82f6');
+    const [pinInput, setPinInput] = useState('');
+
     const handleExport = () => {
-      const data = { people, products, cardex, invoices, cheques, banks, categories, brands, models, colors, audit, exportDate: new Date().toISOString() };
+      const data = { 
+        people, products, cardex, invoices, payments, returnInvoices, proformas,
+        cheques, banks, categories, brands, models, colors, audit, 
+        storeSettings, securitySettings, invoiceTags,
+        exportDate: new Date().toISOString() 
+      };
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url; a.download = `backup-${getTodayDate()}.json`;
@@ -856,8 +932,16 @@ export default function App() {
           const data = JSON.parse(ev.target?.result as string);
           if(data.people)setPeople(data.people);if(data.products)setProducts(data.products);
           if(data.cardex)setCardex(data.cardex);
-          if(data.invoices)setInvoices(data.invoices);if(data.cheques)setCheques(data.cheques);
-          if(data.banks)setBanks(data.banks);if(data.audit)setAudit(data.audit);
+          if(data.invoices)setInvoices(data.invoices);
+          if(data.payments)setPayments(data.payments);
+          if(data.returnInvoices)setReturnInvoices(data.returnInvoices);
+          if(data.proformas)setProformas(data.proformas);
+          if(data.cheques)setCheques(data.cheques);
+          if(data.banks)setBanks(data.banks);
+          if(data.audit)setAudit(data.audit);
+          if(data.storeSettings)setStoreSettings(data.storeSettings);
+          if(data.securitySettings)setSecuritySettings(data.securitySettings);
+          if(data.invoiceTags)setInvoiceTags(data.invoiceTags);
           alert('✅ بازیابی شد!');
         } catch { alert('❌ خطا'); }
       };
@@ -866,26 +950,132 @@ export default function App() {
     const handleReset = () => {
       if (!confirm('⚠️ تمام اطلاعات حذف خواهد شد!\nآیا مطمئن هستید؟')) return;
       if (!confirm('⚠️ تأیید نهایی: این عمل قابل بازگشت نیست!')) return;
-      setPeople([]);setProducts([]);setCardex([]);setInvoices([]);setCheques([]);setBanks([]);setAudit([]);
+      setPeople([]);setProducts([]);setCardex([]);setInvoices([]);setPayments([]);
+      setReturnInvoices([]);setProformas([]);setCheques([]);setBanks([]);setAudit([]);
       localStorage.clear();
       alert('✅ تمام اطلاعات حذف شد!');
       window.location.reload();
     };
+
+    const handleSetPin = () => {
+      if (pinInput.length !== 4) return alert('پین باید ۴ رقم باشد');
+      setSecuritySettings({ ...securitySettings, pinEnabled: true, pinHash: pinInput });
+      setPinInput('');
+      alert('✅ پین تنظیم شد');
+    };
+
+    const handleDisablePin = () => {
+      setSecuritySettings({ ...securitySettings, pinEnabled: false, pinHash: undefined });
+      alert('✅ پین غیرفعال شد');
+    };
+
+    const handleAddTag = () => {
+      if (!newTagName) return;
+      setInvoiceTags([...invoiceTags, { id: generateId(), name: newTagName, color: newTagColor }]);
+      setNewTagName('');
+    };
+
     return (
       <div className="space-y-4">
         <h2 className="text-2xl font-bold">⚙️ تنظیمات</h2>
+        
+        {/* تنظیمات فروشگاه */}
         <div className="bg-slate-800/60 rounded-2xl p-6 border border-slate-700/50">
-          <h3 className="text-lg font-bold mb-4">پشتیبان‌گیری و بازیابی</h3>
+          <h3 className="text-lg font-bold mb-4">🏪 تنظیمات فروشگاه</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="text-slate-400 text-xs mb-1 block">نام فروشگاه</label>
+              <input value={storeSettings.storeName} onChange={e => setStoreSettings({ ...storeSettings, storeName: e.target.value })} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+            </div>
+            <div>
+              <label className="text-slate-400 text-xs mb-1 block">مدیر</label>
+              <input value={storeSettings.manager} onChange={e => setStoreSettings({ ...storeSettings, manager: e.target.value })} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+            </div>
+            <div>
+              <label className="text-slate-400 text-xs mb-1 block">تلفن</label>
+              <input value={storeSettings.phone} onChange={e => setStoreSettings({ ...storeSettings, phone: e.target.value })} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+            </div>
+            <div>
+              <label className="text-slate-400 text-xs mb-1 block">موبایل</label>
+              <input value={storeSettings.mobile} onChange={e => setStoreSettings({ ...storeSettings, mobile: e.target.value })} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-slate-400 text-xs mb-1 block">آدرس</label>
+              <input value={storeSettings.address} onChange={e => setStoreSettings({ ...storeSettings, address: e.target.value })} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-slate-400 text-xs mb-1 block">پاورقی چاپ</label>
+              <input value={storeSettings.printFooter} onChange={e => setStoreSettings({ ...storeSettings, printFooter: e.target.value })} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+            </div>
+            <div>
+              <label className="text-slate-400 text-xs mb-1 block">اندازه پیش‌فرض کاغذ</label>
+              <select value={storeSettings.defaultPaper} onChange={e => setStoreSettings({ ...storeSettings, defaultPaper: e.target.value as 'A4' | 'A5' })} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white">
+                <option value="A4">A4</option>
+                <option value="A5">A5</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* امنیت */}
+        <div className="bg-slate-800/60 rounded-2xl p-6 border border-slate-700/50">
+          <h3 className="text-lg font-bold mb-4">🔒 امنیت</h3>
+          {!securitySettings.pinEnabled ? (
+            <div className="space-y-3">
+              <p className="text-slate-300 text-sm">پین فعال نیست</p>
+              <div className="flex gap-2">
+                <input type="password" maxLength={4} value={pinInput} onChange={e => setPinInput(e.target.value)} placeholder="پین ۴ رقمی" className="flex-1 bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+                <button onClick={handleSetPin} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl">فعال‌سازی پین</button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-emerald-400 text-sm">✅ پین فعال است</p>
+              <div>
+                <label className="text-slate-400 text-xs mb-1 block">قفل خودکار پس از (دقیقه)</label>
+                <input type="number" value={securitySettings.autoLockMinutes} onChange={e => setSecuritySettings({ ...securitySettings, autoLockMinutes: Number(e.target.value) })} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+              </div>
+              <button onClick={handleDisablePin} className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-xl">غیرفعال‌سازی پین</button>
+            </div>
+          )}
+        </div>
+
+        {/* برچسب‌ها */}
+        <div className="bg-slate-800/60 rounded-2xl p-6 border border-slate-700/50">
+          <h3 className="text-lg font-bold mb-4">🏷️ برچسب‌های فاکتور</h3>
+          <div className="flex gap-2 mb-4">
+            <input value={newTagName} onChange={e => setNewTagName(e.target.value)} placeholder="نام برچسب" className="flex-1 bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+            <input type="color" value={newTagColor} onChange={e => setNewTagColor(e.target.value)} className="w-16 h-10 bg-slate-700/50 border border-slate-600 rounded-xl cursor-pointer" />
+            <button onClick={handleAddTag} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl">➕ افزودن</button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {invoiceTags.map(tag => (
+              <div key={tag.id} className="flex items-center gap-2 px-3 py-1.5 rounded-lg border group" style={{ borderColor: tag.color + '50', backgroundColor: tag.color + '15' }}>
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: tag.color }} />
+                <span className="text-sm" style={{ color: tag.color }}>{tag.name}</span>
+                <button onClick={() => setInvoiceTags(invoiceTags.filter(t => t.id !== tag.id))} className="opacity-0 group-hover:opacity-100 text-rose-400 text-xs">✕</button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* پشتیبان‌گیری */}
+        <div className="bg-slate-800/60 rounded-2xl p-6 border border-slate-700/50">
+          <h3 className="text-lg font-bold mb-4">💾 پشتیبان‌گیری و بازیابی</h3>
           <div className="grid grid-cols-2 gap-4">
             <button onClick={handleExport} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl">💾 پشتیبان‌گیری</button>
             <label className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl text-center cursor-pointer">📥 بازیابی<input type="file" accept=".json" onChange={handleImport} className="hidden" /></label>
           </div>
         </div>
+
+        {/* خام کردن */}
         <div className="bg-rose-900/30 rounded-2xl p-6 border border-rose-500/50">
           <h3 className="text-lg font-bold mb-4 text-rose-400">⚠️ خام کردن برنامه</h3>
           <p className="text-slate-300 mb-4">این دکمه تمام اطلاعات را حذف می‌کند. قبل از خام کردن، حتماً پشتیبان‌گیری کنید!</p>
           <button onClick={handleReset} className="bg-rose-600 hover:bg-rose-700 text-white font-bold py-3 px-6 rounded-xl w-full transition-colors">🗑️ خام کردن برنامه</button>
         </div>
+
+        {/* آمار */}
         <div className="bg-slate-800/60 rounded-2xl p-6 border border-slate-700/50">
           <h3 className="text-lg font-bold mb-4">📊 آمار</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -1485,12 +1675,38 @@ export default function App() {
       </div>
       <div className={`transition-all duration-300 ${sidebarOpen?'lg:mr-64':'lg:mr-16'}`}>
         <header className="bg-slate-900/80 backdrop-blur-lg border-b border-slate-700/50 sticky top-0 z-30">
-          <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <button onClick={()=>setSidebarOpen(!sidebarOpen)} className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center hover:bg-slate-700">☰</button>
               <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-violet-600 rounded-lg flex items-center justify-center">🏪</div>
-              <div><h1 className="text-lg font-bold">تکنوکالا</h1><p className="text-xs text-slate-500">سیستم حسابداری</p></div>
+              <div><h1 className="text-lg font-bold">{storeSettings.storeName || 'تکنوکالا'}</h1><p className="text-xs text-slate-500">سیستم حسابداری</p></div>
             </div>
+            
+            {/* جستجوی سریع */}
+            <div className="flex-1 max-w-md">
+              <input 
+                value={searchQuery} 
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="🔍 جستجوی سریع (Ctrl+K)..." 
+                className="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && searchQuery) {
+                    const product = products.find(p => !p.isDeleted && (p.serialNumber === searchQuery || p.code === searchQuery));
+                    if (product) {
+                      alert(`✅ کالا یافت شد:\n${getProductName(product)}\nموجودی: ${product.stock}\nقیمت: ${formatNumber(product.sellPrice)} تومان`);
+                      setSearchQuery('');
+                    } else {
+                      alert('❌ کالا یافت نشد');
+                    }
+                  }
+                }}
+              />
+            </div>
+
+            {/* دکمه PDF */}
+            <button onClick={() => window.print()} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm" title="ذخیره PDF">
+              📄 PDF
+            </button>
           </div>
         </header>
         <main className="max-w-7xl mx-auto px-4 py-6">{renderSection()}</main>
