@@ -279,6 +279,9 @@ export default function App() {
     const [viewDocs, setViewDocs] = useState<{person: Person, type: 'person' | 'guarantor'} | null>(null);
     const [newGroupName, setNewGroupName] = useState('');
     const [newGroupColor, setNewGroupColor] = useState('#3b82f6');
+    const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+    const [editGroupName, setEditGroupName] = useState('');
+    const [editGroupColor, setEditGroupColor] = useState('#3b82f6');
 
     const filtered = people.filter(p => !p.isDeleted &&
       (filter === 'all' || p.type === filter) &&
@@ -340,24 +343,100 @@ export default function App() {
         {/* Group Manager */}
         {showGroupManager && (
           <div className="bg-slate-800/60 rounded-2xl p-6 border border-violet-500/30">
-            <h3 className="text-lg font-bold mb-4 text-violet-400">📁 مدیریت گروه اشخاص</h3>
-            <div className="flex gap-2 mb-4">
-              <input value={newGroupName} onChange={e=>setNewGroupName(e.target.value)} placeholder="نام گروه" className="flex-1 bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
-              <input type="color" value={newGroupColor} onChange={e=>setNewGroupColor(e.target.value)} className="w-16 h-10 bg-slate-700/50 border border-slate-600 rounded-xl cursor-pointer" />
-              <button onClick={()=>{
-                if(!newGroupName) return;
-                setPersonGroups([...personGroups, { id: generateId(), name: newGroupName, color: newGroupColor }]);
-                setNewGroupName(''); setNewGroupColor('#3b82f6');
-              }} className="px-4 bg-violet-600 text-white rounded-xl">➕</button>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-violet-400">📁 مدیریت گروه اشخاص</h3>
+              <button onClick={() => setShowGroupManager(false)} className="text-slate-400 hover:text-white text-xl">✕</button>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {personGroups.map(g => (
-                <div key={g.id} className="flex items-center gap-2 px-3 py-2 rounded-xl border group" style={{borderColor: g.color+'50', backgroundColor: g.color+'15'}}>
-                  <div className="w-4 h-4 rounded-full" style={{backgroundColor: g.color}} />
-                  <span className="text-sm" style={{color: g.color}}>{g.name}</span>
-                  <button onClick={()=>{if(confirm('حذف؟')){setPersonGroups(personGroups.filter(x=>x.id!==g.id));setPeople(people.map(p=>p.groupId===g.id?{...p,groupId:undefined}:p));}}} className="opacity-0 group-hover:opacity-100 text-rose-400 text-xs">✕</button>
-                </div>
-              ))}
+            
+            {/* افزودن گروه جدید */}
+            <div className="bg-slate-700/30 rounded-xl p-4 mb-4">
+              <h4 className="text-slate-300 text-sm font-bold mb-3">➕ افزودن گروه جدید</h4>
+              <div className="flex gap-2">
+                <input value={newGroupName} onChange={e=>setNewGroupName(e.target.value)} placeholder="نام گروه" className="flex-1 bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+                <input type="color" value={newGroupColor} onChange={e=>setNewGroupColor(e.target.value)} className="w-16 h-10 bg-slate-700/50 border border-slate-600 rounded-xl cursor-pointer" />
+                <button onClick={()=>{
+                  if(!newGroupName) return;
+                  setPersonGroups([...personGroups, { id: generateId(), name: newGroupName, color: newGroupColor }]);
+                  setNewGroupName(''); setNewGroupColor('#3b82f6');
+                }} className="px-4 bg-violet-600 hover:bg-violet-700 text-white rounded-xl">➕ افزودن</button>
+              </div>
+            </div>
+            
+            {/* لیست گروه‌ها */}
+            <div className="space-y-2">
+              <h4 className="text-slate-300 text-sm font-bold mb-2">📋 لیست گروه‌ها ({personGroups.length})</h4>
+              {personGroups.length === 0 ? (
+                <p className="text-slate-500 text-center py-4">هیچ گروهی تعریف نشده است</p>
+              ) : (
+                personGroups.map(g => (
+                  <div key={g.id} className="bg-slate-700/30 rounded-xl p-3">
+                    {editingGroupId === g.id ? (
+                      // حالت ویرایش
+                      <div className="flex gap-2">
+                        <input 
+                          value={editGroupName} 
+                          onChange={e=>setEditGroupName(e.target.value)} 
+                          placeholder="نام گروه" 
+                          className="flex-1 bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white" 
+                        />
+                        <input 
+                          type="color" 
+                          value={editGroupColor} 
+                          onChange={e=>setEditGroupColor(e.target.value)} 
+                          className="w-12 h-10 bg-slate-700/50 border border-slate-600 rounded-lg cursor-pointer" 
+                        />
+                        <button 
+                          onClick={()=>{
+                            if(!editGroupName) return;
+                            setPersonGroups(personGroups.map(x => x.id === g.id ? {...x, name: editGroupName, color: editGroupColor} : x));
+                            setEditingGroupId(null);
+                          }} 
+                          className="px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg"
+                        >
+                          ✓
+                        </button>
+                        <button 
+                          onClick={()=>setEditingGroupId(null)} 
+                          className="px-3 bg-slate-600 hover:bg-slate-500 text-white rounded-lg"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      // حالت نمایش
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-5 h-5 rounded-full" style={{backgroundColor: g.color}} />
+                          <span className="text-white font-medium">{g.name}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={()=>{
+                              setEditingGroupId(g.id);
+                              setEditGroupName(g.name);
+                              setEditGroupColor(g.color);
+                            }} 
+                            className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"
+                          >
+                            ✏️ ویرایش
+                          </button>
+                          <button 
+                            onClick={()=>{
+                              if(confirm(`حذف گروه "${g.name}"؟\nاشخاص این گروه بدون گروه خواهند شد.`)){
+                                setPersonGroups(personGroups.filter(x=>x.id!==g.id));
+                                setPeople(people.map(p=>p.groupId===g.id?{...p,groupId:undefined}:p));
+                              }
+                            }} 
+                            className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm"
+                          >
+                            🗑️ حذف
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           </div>
         )}
@@ -591,16 +670,9 @@ export default function App() {
           </div>
         )}
 
-        {/* Filters */}
+        {/* Search Only */}
         <div className="flex gap-2 flex-wrap">
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 جستجو..." className="flex-1 min-w-48 bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
-          {['all','customer','supplier','guarantor','employee'].map(t=>(
-            <button key={t} onClick={()=>setFilter(t)} className={`px-3 py-2 rounded-xl text-sm ${filter===t?'bg-blue-600 text-white':'bg-slate-700/50 text-slate-300'}`}>{t==='all'?'همه':typeLabel[t]}</button>
-          ))}
-          <select value={groupFilter} onChange={e=>setGroupFilter(e.target.value)} className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white text-sm">
-            <option value="all">همه گروه‌ها</option>
-            {personGroups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}
-          </select>
         </div>
 
         {/* People List */}
