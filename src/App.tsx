@@ -495,7 +495,6 @@ export default function App() {
                 className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white md:col-span-2" 
               />
               <select value={form.customerTypeId||''} onChange={e=>setForm({...form,customerTypeId:e.target.value||undefined})} className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white">
-                <option value="">بدون نوع</option>
                 {customerTypes.map((g: CustomerType)=><option key={g.id} value={g.id}>{g.icon} {g.name}</option>)}
               </select>
               <input value={form.mobile||''} onChange={e=>setForm({...form,mobile:e.target.value})} placeholder="موبایل *" className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
