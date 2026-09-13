@@ -195,7 +195,7 @@ export default function App() {
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState('all');
     const [groupFilter, setGroupFilter] = useState('all');
-    const [form, setForm] = useState<Partial<Person>>({ type: 'customer', creditor: 0, debtor: 0, documents: [], guarantor: { id: generateId(), name: '', documents: [] } });
+    const [form, setForm] = useState<Partial<Person>>({ type: 'customer', creditor: 0, debtor: 0, documents: [], guarantor: { id: generateId(), name: '', mobile: '', phone: '', nationalId: '', address: '', job: '', documents: [] } });
     const [editId, setEditId] = useState<string | null>(null);
     const [viewDocs, setViewDocs] = useState<{person: Person, type: 'person' | 'guarantor'} | null>(null);
     const [newGroupName, setNewGroupName] = useState('');
@@ -234,7 +234,7 @@ export default function App() {
         setPeople(prev => [newP, ...prev]);
         log('CREATE', 'person', newP.id, newP.name);
       }
-      setForm({ type: 'customer', creditor: 0, debtor: 0, documents: [], guarantor: { id: generateId(), name: '', documents: [] } });
+      setForm({ type: 'customer', creditor: 0, debtor: 0, documents: [], guarantor: { id: generateId(), name: '', mobile: '', phone: '', nationalId: '', address: '', job: '', documents: [] } });
       setShowForm(false); setEditId(null);
     };
 
@@ -253,7 +253,7 @@ export default function App() {
           <h2 className="text-2xl font-bold">👥 مدیریت اشخاص</h2>
           <div className="flex gap-2">
             <button onClick={() => setShowGroupManager(!showGroupManager)} className="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-xl">📁 گروه‌ها</button>
-            <button onClick={() => { setShowForm(!showForm); setEditId(null); setForm({ type: 'customer', creditor: 0, debtor: 0, documents: [], guarantor: { id: generateId(), name: '', documents: [] } }); }}
+            <button onClick={() => { setShowForm(!showForm); setEditId(null); setForm({ type: 'customer', creditor: 0, debtor: 0, documents: [], guarantor: { id: generateId(), name: '', mobile: '', phone: '', nationalId: '', address: '', job: '', documents: [] } }); }}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl">{showForm ? '✕ بستن' : '➕ شخص جدید'}</button>
           </div>
         </div>
@@ -333,44 +333,139 @@ export default function App() {
             </div>
             
             {/* Guarantor Section */}
-            <div className="mt-4 border border-amber-500/30 rounded-xl p-4 bg-amber-500/5">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-amber-400 font-bold">🛡️ ضامن (اختیاری)</h4>
-                {(!form.guarantor?.name) && (
-                  <button onClick={()=>setForm({...form, guarantor: { id: generateId(), name: '', documents: [] }})} className="text-xs bg-amber-600 text-white px-3 py-1 rounded-lg">➕ افزودن ضامن</button>
+            <div className="mt-4 border-2 border-amber-500/30 rounded-xl p-5 bg-gradient-to-br from-amber-500/5 to-amber-600/5">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">🛡️</span>
+                  <div>
+                    <h4 className="text-amber-400 font-bold text-lg">ضامن</h4>
+                    <p className="text-slate-400 text-xs">اطلاعات ضامن شخص (اختیاری)</p>
+                  </div>
+                </div>
+                {!form.guarantor?.name && (
+                  <button 
+                    onClick={()=>setForm({...form, guarantor: { id: generateId(), name: '', mobile: '', phone: '', nationalId: '', address: '', job: '', documents: [] }})} 
+                    className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg shadow-amber-500/30 transition-all hover:scale-105"
+                  >
+                    ➕ افزودن ضامن
+                  </button>
                 )}
               </div>
+              
               {form.guarantor?.name !== undefined && form.guarantor?.name !== '' && (
-                <div className="space-y-3">
+                <div className="space-y-4 animate-fadeIn">
                   {/* Guarantor Image */}
-                  <ImageUpload image={form.guarantor.image} onImageChange={(img) => setForm({...form, guarantor: {...form.guarantor!, image: img || undefined}})} label="📷 عکس ضامن" size="sm" />
+                  <div className="bg-slate-800/50 rounded-xl p-4">
+                    <ImageUpload 
+                      image={form.guarantor.image} 
+                      onImageChange={(img) => setForm({...form, guarantor: {...form.guarantor!, image: img || undefined}})} 
+                      label="📷 عکس پروفایل ضامن (از روی کارت ملی)" 
+                      size="md" 
+                    />
+                  </div>
                   
-                  <div className="grid grid-cols-2 gap-2">
-                    <input value={form.guarantor.name||''} onChange={e=>setForm({...form, guarantor:{...form.guarantor!, name:e.target.value}})} placeholder="نام ضامن *" className="bg-slate-700/50 border border-slate-600 rounded-lg px-2 py-1.5 text-white text-sm" />
-                    <input value={form.guarantor.mobile||''} onChange={e=>setForm({...form, guarantor:{...form.guarantor!, mobile:e.target.value}})} placeholder="موبایل" className="bg-slate-700/50 border border-slate-600 rounded-lg px-2 py-1.5 text-white text-sm" />
-                    <input value={form.guarantor.nationalId||''} onChange={e=>setForm({...form, guarantor:{...form.guarantor!, nationalId:e.target.value}})} placeholder="کد ملی" className="bg-slate-700/50 border border-slate-600 rounded-lg px-2 py-1.5 text-white text-sm" />
-                    <input value={form.guarantor.job||''} onChange={e=>setForm({...form, guarantor:{...form.guarantor!, job:e.target.value}})} placeholder="شغل" className="bg-slate-700/50 border border-slate-600 rounded-lg px-2 py-1.5 text-white text-sm" />
+                  {/* Guarantor Info Fields */}
+                  <div className="bg-slate-800/50 rounded-xl p-4">
+                    <h5 className="text-slate-300 text-sm font-bold mb-3">📝 اطلاعات ضامن</h5>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-slate-400 text-xs mb-1 block">نام و نام خانوادگی *</label>
+                        <input 
+                          value={form.guarantor.name||''} 
+                          onChange={e=>setForm({...form, guarantor:{...form.guarantor!, name:e.target.value}})} 
+                          placeholder="نام کامل ضامن" 
+                          className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-amber-500 focus:outline-none transition-colors" 
+                        />
+                      </div>
+                      <div>
+                        <label className="text-slate-400 text-xs mb-1 block">شماره موبایل *</label>
+                        <input 
+                          value={form.guarantor.mobile||''} 
+                          onChange={e=>setForm({...form, guarantor:{...form.guarantor!, mobile:e.target.value}})} 
+                          placeholder="09xxxxxxxxx" 
+                          className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-amber-500 focus:outline-none transition-colors" 
+                        />
+                      </div>
+                      <div>
+                        <label className="text-slate-400 text-xs mb-1 block">کد ملی</label>
+                        <input 
+                          value={form.guarantor.nationalId||''} 
+                          onChange={e=>setForm({...form, guarantor:{...form.guarantor!, nationalId:e.target.value}})} 
+                          placeholder="xxxxxxxxxx" 
+                          className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-amber-500 focus:outline-none transition-colors" 
+                        />
+                      </div>
+                      <div>
+                        <label className="text-slate-400 text-xs mb-1 block">شغل</label>
+                        <input 
+                          value={form.guarantor.job||''} 
+                          onChange={e=>setForm({...form, guarantor:{...form.guarantor!, job:e.target.value}})} 
+                          placeholder="شغل ضامن" 
+                          className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-amber-500 focus:outline-none transition-colors" 
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="text-slate-400 text-xs mb-1 block">تلفن ثابت</label>
+                        <input 
+                          value={form.guarantor.phone||''} 
+                          onChange={e=>setForm({...form, guarantor:{...form.guarantor!, phone:e.target.value}})} 
+                          placeholder="021xxxxxxxx" 
+                          className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-amber-500 focus:outline-none transition-colors" 
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="text-slate-400 text-xs mb-1 block">آدرس</label>
+                        <textarea 
+                          value={form.guarantor.address||''} 
+                          onChange={e=>setForm({...form, guarantor:{...form.guarantor!, address:e.target.value}})} 
+                          placeholder="آدرس کامل ضامن" 
+                          rows={2}
+                          className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:border-amber-500 focus:outline-none transition-colors resize-none" 
+                        />
+                      </div>
+                    </div>
                   </div>
                   
                   {/* Guarantor Documents */}
-                  <div>
-                    <label className="flex items-center justify-center gap-2 bg-slate-600/50 border border-dashed border-amber-500/50 rounded-xl p-2 cursor-pointer hover:bg-slate-600">
-                      <span className="text-xs">📎 مدارک ضامن</span>
+                  <div className="bg-slate-800/50 rounded-xl p-4">
+                    <h5 className="text-slate-300 text-sm font-bold mb-3">📎 مدارک ضامن</h5>
+                    <label className="flex items-center justify-center gap-2 bg-gradient-to-r from-amber-600/20 to-amber-700/20 border-2 border-dashed border-amber-500/50 rounded-xl p-4 cursor-pointer hover:from-amber-600/30 hover:to-amber-700/30 transition-all">
+                      <span className="text-3xl">📎</span>
+                      <div className="text-center">
+                        <span className="text-amber-400 font-bold text-sm block">انتخاب فایل‌های مدارک ضامن</span>
+                        <span className="text-slate-400 text-xs">کارت ملی، قرارداد و سایر مدارک</span>
+                      </div>
                       <input type="file" multiple accept="image/*,.pdf" onChange={(e) => handleDocUpload(e, true)} className="hidden" />
                     </label>
                     {form.guarantor.documents && form.guarantor.documents.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {form.guarantor.documents.map(d => (
-                          <div key={d.id} className="bg-slate-700/50 rounded-lg p-1.5 flex items-center gap-1">
-                            <span className="text-xs">{d.type.includes('image') ? '🖼️' : '📄'}</span>
-                            <span className="text-[10px] text-slate-300">{d.name}</span>
-                            <button onClick={() => setForm({...form, guarantor: {...form.guarantor!, documents: form.guarantor!.documents.filter(x=>x.id!==d.id)}})} className="text-rose-400 text-[10px]">✕</button>
-                          </div>
-                        ))}
+                      <div className="mt-3 space-y-2">
+                        <p className="text-slate-400 text-xs">📁 مدارک بارگذاری شده ({form.guarantor.documents.length}):</p>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {form.guarantor.documents.map(d => (
+                            <div key={d.id} className="bg-slate-700/50 rounded-lg p-2 flex items-center gap-2 group relative">
+                              <span className="text-lg">{d.type.includes('image') ? '🖼️' : '📄'}</span>
+                              <span className="text-xs text-slate-300 truncate flex-1">{d.name}</span>
+                              <button 
+                                onClick={() => setForm({...form, guarantor: {...form.guarantor!, documents: form.guarantor!.documents.filter(x=>x.id!==d.id)}})} 
+                                className="text-rose-400 hover:text-rose-300 text-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="حذف مدرک"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
-                  <button onClick={()=>setForm({...form, guarantor: undefined})} className="text-rose-400 text-xs">✕ حذف ضامن</button>
+                  
+                  {/* Remove Guarantor Button */}
+                  <button 
+                    onClick={()=>setForm({...form, guarantor: undefined})} 
+                    className="w-full bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 py-2 rounded-xl text-sm font-bold transition-all"
+                  >
+                    🗑️ حذف ضامن
+                  </button>
                 </div>
               )}
             </div>
@@ -462,22 +557,80 @@ export default function App() {
                 {/* Guarantor Image & Documents */}
                 {viewDocs.person.guarantor && (
                   <div>
-                    <h4 className="text-amber-400 font-bold mb-3">🛡️ تصویر و مدارک ضامن</h4>
+                    <h4 className="text-amber-400 font-bold mb-3 flex items-center gap-2">
+                      <span className="text-2xl">🛡️</span>
+                      تصویر و اطلاعات ضامن
+                    </h4>
+                    
+                    {/* Guarantor Image */}
                     {viewDocs.person.guarantor.image && (
-                      <img src={viewDocs.person.guarantor.image} alt="ضامن" className="w-full h-40 object-cover rounded-xl mb-3 cursor-pointer" onClick={() => setLightboxImage(viewDocs.person.guarantor!.image!)} />
+                      <div className="mb-3">
+                        <img 
+                          src={viewDocs.person.guarantor.image} 
+                          alt="ضامن" 
+                          className="w-full h-40 object-cover rounded-xl cursor-pointer hover:opacity-90 transition-opacity" 
+                          onClick={() => setLightboxImage(viewDocs.person.guarantor!.image!)} 
+                        />
+                      </div>
                     )}
-                    {viewDocs.person.guarantor.documents.length > 0 && (
-                      <div className="grid grid-cols-2 gap-2">
-                        {viewDocs.person.guarantor.documents.map(d => (
-                          <div key={d.id} className="bg-slate-700/30 rounded-xl p-2">
-                            {d.type.includes('image') ? (
-                              <img src={d.data} alt={d.name} className="w-full h-24 object-cover rounded-lg mb-1 cursor-pointer" onClick={() => setLightboxImage(d.data)} />
-                            ) : (
-                              <div className="w-full h-24 bg-slate-600/50 rounded-lg mb-1 flex items-center justify-center text-2xl">📄</div>
-                            )}
-                            <p className="text-[10px] text-slate-300 truncate">{d.name}</p>
+                    
+                    {/* Guarantor Info */}
+                    <div className="bg-slate-700/30 rounded-xl p-3 mb-3">
+                      <h6 className="text-slate-300 text-sm font-bold mb-2">📝 اطلاعات ضامن</h6>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">نام:</span>
+                          <span className="text-white">{viewDocs.person.guarantor.name}</span>
+                        </div>
+                        {viewDocs.person.guarantor.mobile && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">موبایل:</span>
+                            <span className="text-white">{viewDocs.person.guarantor.mobile}</span>
                           </div>
-                        ))}
+                        )}
+                        {viewDocs.person.guarantor.phone && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">تلفن:</span>
+                            <span className="text-white">{viewDocs.person.guarantor.phone}</span>
+                          </div>
+                        )}
+                        {viewDocs.person.guarantor.nationalId && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">کد ملی:</span>
+                            <span className="text-white">{viewDocs.person.guarantor.nationalId}</span>
+                          </div>
+                        )}
+                        {viewDocs.person.guarantor.job && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">شغل:</span>
+                            <span className="text-white">{viewDocs.person.guarantor.job}</span>
+                          </div>
+                        )}
+                        {viewDocs.person.guarantor.address && (
+                          <div className="pt-1">
+                            <span className="text-slate-400 block mb-1">آدرس:</span>
+                            <span className="text-white text-xs">{viewDocs.person.guarantor.address}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Guarantor Documents */}
+                    {viewDocs.person.guarantor.documents.length > 0 && (
+                      <div>
+                        <h6 className="text-slate-300 text-sm font-bold mb-2">📎 مدارک ضامن ({viewDocs.person.guarantor.documents.length})</h6>
+                        <div className="grid grid-cols-2 gap-2">
+                          {viewDocs.person.guarantor.documents.map(d => (
+                            <div key={d.id} className="bg-slate-700/30 rounded-xl p-2">
+                              {d.type.includes('image') ? (
+                                <img src={d.data} alt={d.name} className="w-full h-24 object-cover rounded-lg mb-1 cursor-pointer hover:opacity-90 transition-opacity" onClick={() => setLightboxImage(d.data)} />
+                              ) : (
+                                <div className="w-full h-24 bg-slate-600/50 rounded-lg mb-1 flex items-center justify-center text-2xl">📄</div>
+                              )}
+                              <p className="text-[10px] text-slate-300 truncate">{d.name}</p>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>

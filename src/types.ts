@@ -22,6 +22,7 @@ export interface Guarantor {
   job?: string;
   image?: string;
   documents: PersonDocument[];
+  createdAt?: string;
 }
 
 export interface Person {
