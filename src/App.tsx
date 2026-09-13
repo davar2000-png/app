@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 // Types
 interface Product {
@@ -14,6 +14,7 @@ interface Customer {
   name: string;
   phone: string;
   address: string;
+  type: string;
 }
 
 interface Invoice {
@@ -23,7 +24,6 @@ interface Invoice {
   total: number;
   date: string;
   paymentType: 'cash' | 'installment';
-  installments?: { amount: number; dueDate: string; paid: boolean }[];
 }
 
 // LocalStorage Hook
@@ -68,6 +68,7 @@ export default function App() {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
+  const [customerType, setCustomerType] = useState('عادی');
 
   // Invoice Form
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
@@ -111,12 +112,14 @@ export default function App() {
       name: customerName,
       phone: customerPhone,
       address: customerAddress,
+      type: customerType,
     };
 
     setCustomers([...customers, newCustomer]);
     setCustomerName('');
     setCustomerPhone('');
     setCustomerAddress('');
+    setCustomerType('عادی');
     setShowCustomerForm(false);
     alert('مشتری با موفقیت اضافه شد');
   };
@@ -146,11 +149,6 @@ export default function App() {
       total,
       date: new Date().toLocaleDateString('fa-IR'),
       paymentType,
-      installments: paymentType === 'installment' ? [
-        { amount: total / 3, dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('fa-IR'), paid: false },
-        { amount: total / 3, dueDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toLocaleDateString('fa-IR'), paid: false },
-        { amount: total / 3, dueDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toLocaleDateString('fa-IR'), paid: false },
-      ] : undefined,
     };
 
     setInvoices([...invoices, newInvoice]);
@@ -166,100 +164,136 @@ export default function App() {
   const totalCustomers = customers.length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100" dir="rtl">
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', direction: 'rtl' }}>
       {/* Header */}
-      <header className="bg-white shadow-lg">
-        <div className="container mx-auto px-6 py-4">
-          <h1 className="text-3xl font-bold text-indigo-600">🏪 سیستم حسابداری فروشگاه</h1>
+      <header style={{ background: 'white', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
+          <h1 style={{ fontSize: '28px', fontWeight: 'bold', color: '#667eea', margin: 0 }}>🏪 سیستم حسابداری فروشگاه</h1>
         </div>
       </header>
 
       {/* Navigation */}
-      <nav className="bg-white shadow-md">
-        <div className="container mx-auto px-6">
-          <div className="flex space-x-4 space-x-reverse">
-            <button
-              onClick={() => setActiveTab('dashboard')}
-              className={`px-6 py-3 font-medium transition ${activeTab === 'dashboard' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-600 hover:text-indigo-600'}`}
-            >
-              📊 داشبورد
-            </button>
-            <button
-              onClick={() => setActiveTab('products')}
-              className={`px-6 py-3 font-medium transition ${activeTab === 'products' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-600 hover:text-indigo-600'}`}
-            >
-              📦 محصولات
-            </button>
-            <button
-              onClick={() => setActiveTab('customers')}
-              className={`px-6 py-3 font-medium transition ${activeTab === 'customers' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-600 hover:text-indigo-600'}`}
-            >
-              👥 مشتریان
-            </button>
-            <button
-              onClick={() => setActiveTab('invoices')}
-              className={`px-6 py-3 font-medium transition ${activeTab === 'invoices' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-600 hover:text-indigo-600'}`}
-            >
-              🧾 فاکتورها
-            </button>
-          </div>
+      <nav style={{ background: 'white', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px', display: 'flex', gap: '20px' }}>
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            style={{
+              padding: '15px 25px',
+              fontWeight: '500',
+              border: 'none',
+              background: 'none',
+              cursor: 'pointer',
+              borderBottom: activeTab === 'dashboard' ? '3px solid #667eea' : 'none',
+              color: activeTab === 'dashboard' ? '#667eea' : '#666',
+            }}
+          >
+            📊 داشبورد
+          </button>
+          <button
+            onClick={() => setActiveTab('products')}
+            style={{
+              padding: '15px 25px',
+              fontWeight: '500',
+              border: 'none',
+              background: 'none',
+              cursor: 'pointer',
+              borderBottom: activeTab === 'products' ? '3px solid #667eea' : 'none',
+              color: activeTab === 'products' ? '#667eea' : '#666',
+            }}
+          >
+            📦 محصولات
+          </button>
+          <button
+            onClick={() => setActiveTab('customers')}
+            style={{
+              padding: '15px 25px',
+              fontWeight: '500',
+              border: 'none',
+              background: 'none',
+              cursor: 'pointer',
+              borderBottom: activeTab === 'customers' ? '3px solid #667eea' : 'none',
+              color: activeTab === 'customers' ? '#667eea' : '#666',
+            }}
+          >
+            👥 مشتریان
+          </button>
+          <button
+            onClick={() => setActiveTab('invoices')}
+            style={{
+              padding: '15px 25px',
+              fontWeight: '500',
+              border: 'none',
+              background: 'none',
+              cursor: 'pointer',
+              borderBottom: activeTab === 'invoices' ? '3px solid #667eea' : 'none',
+              color: activeTab === 'invoices' ? '#667eea' : '#666',
+            }}
+          >
+            🧾 فاکتورها
+          </button>
         </div>
       </nav>
 
       {/* Main Content */}
-      <main className="container mx-auto px-6 py-8">
+      <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '30px 20px' }}>
         {/* Dashboard */}
         {activeTab === 'dashboard' && (
           <div>
-            <h2 className="text-2xl font-bold mb-6 text-gray-800">📊 داشبورد</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <div className="flex items-center justify-between">
+            <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '20px', color: '#333' }}>📊 داشبورد</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginBottom: '30px' }}>
+              <div style={{ background: 'white', borderRadius: '12px', padding: '25px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <p className="text-gray-500 text-sm">کل فروش</p>
-                    <p className="text-3xl font-bold text-indigo-600">{totalSales.toLocaleString('fa-IR')} تومان</p>
+                    <p style={{ color: '#666', fontSize: '14px', margin: '0 0 10px 0' }}>کل فروش</p>
+                    <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#667eea', margin: 0 }}>{totalSales.toLocaleString('fa-IR')} تومان</p>
                   </div>
-                  <div className="text-5xl">💰</div>
+                  <div style={{ fontSize: '48px' }}>💰</div>
                 </div>
               </div>
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <div className="flex items-center justify-between">
+              <div style={{ background: 'white', borderRadius: '12px', padding: '25px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <p className="text-gray-500 text-sm">تعداد محصولات</p>
-                    <p className="text-3xl font-bold text-green-600">{totalProducts}</p>
+                    <p style={{ color: '#666', fontSize: '14px', margin: '0 0 10px 0' }}>تعداد محصولات</p>
+                    <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#10b981', margin: 0 }}>{totalProducts}</p>
                   </div>
-                  <div className="text-5xl">📦</div>
+                  <div style={{ fontSize: '48px' }}>📦</div>
                 </div>
               </div>
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <div className="flex items-center justify-between">
+              <div style={{ background: 'white', borderRadius: '12px', padding: '25px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <p className="text-gray-500 text-sm">تعداد مشتریان</p>
-                    <p className="text-3xl font-bold text-blue-600">{totalCustomers}</p>
+                    <p style={{ color: '#666', fontSize: '14px', margin: '0 0 10px 0' }}>تعداد مشتریان</p>
+                    <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#3b82f6', margin: 0 }}>{totalCustomers}</p>
                   </div>
-                  <div className="text-5xl">👥</div>
+                  <div style={{ fontSize: '48px' }}>👥</div>
                 </div>
               </div>
             </div>
 
             {/* Recent Invoices */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h3 className="text-xl font-bold mb-4 text-gray-800">آخرین فاکتورها</h3>
+            <div style={{ background: 'white', borderRadius: '12px', padding: '25px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+              <h3 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '20px', color: '#333' }}>آخرین فاکتورها</h3>
               {invoices.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">هنوز فاکتوری ثبت نشده است</p>
+                <p style={{ color: '#999', textAlign: 'center', padding: '30px' }}>هنوز فاکتوری ثبت نشده است</p>
               ) : (
-                <div className="space-y-3">
+                <div>
                   {invoices.slice(-5).reverse().map(invoice => {
                     const customer = customers.find(c => c.id === invoice.customerId);
                     return (
-                      <div key={invoice.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                      <div key={invoice.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', background: '#f9fafb', borderRadius: '8px', marginBottom: '10px' }}>
                         <div>
-                          <p className="font-medium text-gray-800">{customer?.name}</p>
-                          <p className="text-sm text-gray-500">{invoice.date}</p>
+                          <p style={{ fontWeight: '500', color: '#333', margin: '0 0 5px 0' }}>{customer?.name}</p>
+                          <p style={{ fontSize: '14px', color: '#666', margin: 0 }}>{invoice.date}</p>
                         </div>
-                        <div className="text-left">
-                          <p className="font-bold text-indigo-600">{invoice.total.toLocaleString('fa-IR')} تومان</p>
-                          <span className={`text-xs px-2 py-1 rounded ${invoice.paymentType === 'cash' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                        <div style={{ textAlign: 'left' }}>
+                          <p style={{ fontWeight: 'bold', color: '#667eea', fontSize: '18px', margin: '0 0 5px 0' }}>{invoice.total.toLocaleString('fa-IR')} تومان</p>
+                          <span style={{
+                            fontSize: '12px',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            background: invoice.paymentType === 'cash' ? '#d1fae5' : '#fed7aa',
+                            color: invoice.paymentType === 'cash' ? '#065f46' : '#92400e',
+                          }}>
                             {invoice.paymentType === 'cash' ? 'نقدی' : 'اقساطی'}
                           </span>
                         </div>
@@ -275,91 +309,108 @@ export default function App() {
         {/* Products */}
         {activeTab === 'products' && (
           <div>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-800">📦 محصولات</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#333', margin: 0 }}>📦 محصولات</h2>
               <button
                 onClick={() => setShowProductForm(!showProductForm)}
-                className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition"
+                style={{
+                  background: '#667eea',
+                  color: 'white',
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontWeight: '500',
+                }}
               >
                 {showProductForm ? 'بستن' : '+ محصول جدید'}
               </button>
             </div>
 
             {showProductForm && (
-              <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-                <h3 className="text-xl font-bold mb-4">افزودن محصول جدید</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div style={{ background: 'white', borderRadius: '12px', padding: '25px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', marginBottom: '20px' }}>
+                <h3 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '20px', color: '#333' }}>افزودن محصول جدید</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">نام محصول</label>
+                    <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#333', marginBottom: '8px' }}>نام محصول</label>
                     <input
                       type="text"
                       value={productName}
                       onChange={e => setProductName(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '8px' }}
                       placeholder="نام محصول"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">قیمت (تومان)</label>
+                    <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#333', marginBottom: '8px' }}>قیمت (تومان)</label>
                     <input
                       type="number"
                       value={productPrice}
                       onChange={e => setProductPrice(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '8px' }}
                       placeholder="0"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">موجودی</label>
+                    <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#333', marginBottom: '8px' }}>موجودی</label>
                     <input
                       type="number"
                       value={productStock}
                       onChange={e => setProductStock(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '8px' }}
                       placeholder="0"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">دسته‌بندی</label>
+                    <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#333', marginBottom: '8px' }}>دسته‌بندی</label>
                     <input
                       type="text"
                       value={productCategory}
                       onChange={e => setProductCategory(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '8px' }}
                       placeholder="دسته‌بندی"
                     />
                   </div>
                 </div>
                 <button
                   onClick={addProduct}
-                  className="mt-4 bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition"
+                  style={{
+                    marginTop: '20px',
+                    background: '#10b981',
+                    color: 'white',
+                    padding: '10px 20px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontWeight: '500',
+                  }}
                 >
                   ✓ ثبت محصول
                 </button>
               </div>
             )}
 
-            <div className="bg-white rounded-xl shadow-lg p-6">
+            <div style={{ background: 'white', borderRadius: '12px', padding: '25px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
               {products.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">هنوز محصولی ثبت نشده است</p>
+                <p style={{ color: '#999', textAlign: 'center', padding: '30px' }}>هنوز محصولی ثبت نشده است</p>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-right py-3 px-4 font-medium text-gray-700">نام</th>
-                        <th className="text-right py-3 px-4 font-medium text-gray-700">قیمت</th>
-                        <th className="text-right py-3 px-4 font-medium text-gray-700">موجودی</th>
-                        <th className="text-right py-3 px-4 font-medium text-gray-700">دسته‌بندی</th>
+                      <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
+                        <th style={{ textAlign: 'right', padding: '12px', fontWeight: '500', color: '#333' }}>نام</th>
+                        <th style={{ textAlign: 'right', padding: '12px', fontWeight: '500', color: '#333' }}>قیمت</th>
+                        <th style={{ textAlign: 'right', padding: '12px', fontWeight: '500', color: '#333' }}>موجودی</th>
+                        <th style={{ textAlign: 'right', padding: '12px', fontWeight: '500', color: '#333' }}>دسته‌بندی</th>
                       </tr>
                     </thead>
                     <tbody>
                       {products.map(product => (
-                        <tr key={product.id} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="py-3 px-4">{product.name}</td>
-                          <td className="py-3 px-4">{product.price.toLocaleString('fa-IR')} تومان</td>
-                          <td className="py-3 px-4">{product.stock}</td>
-                          <td className="py-3 px-4">{product.category}</td>
+                        <tr key={product.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                          <td style={{ padding: '12px' }}>{product.name}</td>
+                          <td style={{ padding: '12px' }}>{product.price.toLocaleString('fa-IR')} تومان</td>
+                          <td style={{ padding: '12px' }}>{product.stock}</td>
+                          <td style={{ padding: '12px' }}>{product.category}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -373,79 +424,110 @@ export default function App() {
         {/* Customers */}
         {activeTab === 'customers' && (
           <div>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-800">👥 مشتریان</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#333', margin: 0 }}>👥 مشتریان</h2>
               <button
                 onClick={() => setShowCustomerForm(!showCustomerForm)}
-                className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition"
+                style={{
+                  background: '#667eea',
+                  color: 'white',
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontWeight: '500',
+                }}
               >
                 {showCustomerForm ? 'بستن' : '+ مشتری جدید'}
               </button>
             </div>
 
             {showCustomerForm && (
-              <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-                <h3 className="text-xl font-bold mb-4">افزودن مشتری جدید</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div style={{ background: 'white', borderRadius: '12px', padding: '25px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', marginBottom: '20px' }}>
+                <h3 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '20px', color: '#333' }}>افزودن مشتری جدید</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">نام</label>
+                    <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#333', marginBottom: '8px' }}>نام</label>
                     <input
                       type="text"
                       value={customerName}
                       onChange={e => setCustomerName(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '8px' }}
                       placeholder="نام مشتری"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">تلفن</label>
+                    <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#333', marginBottom: '8px' }}>تلفن</label>
                     <input
                       type="tel"
                       value={customerPhone}
                       onChange={e => setCustomerPhone(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '8px' }}
                       placeholder="09xxxxxxxxx"
                     />
                   </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">آدرس</label>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#333', marginBottom: '8px' }}>نوع مشتری</label>
+                    <select
+                      value={customerType}
+                      onChange={e => setCustomerType(e.target.value)}
+                      style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '8px' }}
+                    >
+                      <option value="عادی">عادی</option>
+                      <option value="ویژه">ویژه</option>
+                      <option value="عمده">عمده</option>
+                    </select>
+                  </div>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#333', marginBottom: '8px' }}>آدرس</label>
                     <input
                       type="text"
                       value={customerAddress}
                       onChange={e => setCustomerAddress(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '8px' }}
                       placeholder="آدرس"
                     />
                   </div>
                 </div>
                 <button
                   onClick={addCustomer}
-                  className="mt-4 bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition"
+                  style={{
+                    marginTop: '20px',
+                    background: '#10b981',
+                    color: 'white',
+                    padding: '10px 20px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontWeight: '500',
+                  }}
                 >
                   ✓ ثبت مشتری
                 </button>
               </div>
             )}
 
-            <div className="bg-white rounded-xl shadow-lg p-6">
+            <div style={{ background: 'white', borderRadius: '12px', padding: '25px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
               {customers.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">هنوز مشتری ثبت نشده است</p>
+                <p style={{ color: '#999', textAlign: 'center', padding: '30px' }}>هنوز مشتری ثبت نشده است</p>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-right py-3 px-4 font-medium text-gray-700">نام</th>
-                        <th className="text-right py-3 px-4 font-medium text-gray-700">تلفن</th>
-                        <th className="text-right py-3 px-4 font-medium text-gray-700">آدرس</th>
+                      <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
+                        <th style={{ textAlign: 'right', padding: '12px', fontWeight: '500', color: '#333' }}>نام</th>
+                        <th style={{ textAlign: 'right', padding: '12px', fontWeight: '500', color: '#333' }}>تلفن</th>
+                        <th style={{ textAlign: 'right', padding: '12px', fontWeight: '500', color: '#333' }}>آدرس</th>
+                        <th style={{ textAlign: 'right', padding: '12px', fontWeight: '500', color: '#333' }}>نوع</th>
                       </tr>
                     </thead>
                     <tbody>
                       {customers.map(customer => (
-                        <tr key={customer.id} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="py-3 px-4">{customer.name}</td>
-                          <td className="py-3 px-4">{customer.phone}</td>
-                          <td className="py-3 px-4">{customer.address}</td>
+                        <tr key={customer.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                          <td style={{ padding: '12px' }}>{customer.name}</td>
+                          <td style={{ padding: '12px' }}>{customer.phone}</td>
+                          <td style={{ padding: '12px' }}>{customer.address}</td>
+                          <td style={{ padding: '12px' }}>{customer.type}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -459,26 +541,34 @@ export default function App() {
         {/* Invoices */}
         {activeTab === 'invoices' && (
           <div>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-800">🧾 فاکتورها</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#333', margin: 0 }}>🧾 فاکتورها</h2>
               <button
                 onClick={() => setShowInvoiceForm(!showInvoiceForm)}
-                className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition"
+                style={{
+                  background: '#667eea',
+                  color: 'white',
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontWeight: '500',
+                }}
               >
                 {showInvoiceForm ? 'بستن' : '+ فاکتور جدید'}
               </button>
             </div>
 
             {showInvoiceForm && (
-              <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-                <h3 className="text-xl font-bold mb-4">ایجاد فاکتور جدید</h3>
-                <div className="space-y-4">
+              <div style={{ background: 'white', borderRadius: '12px', padding: '25px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', marginBottom: '20px' }}>
+                <h3 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '20px', color: '#333' }}>ایجاد فاکتور جدید</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">مشتری</label>
+                    <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#333', marginBottom: '8px' }}>مشتری</label>
                     <select
                       value={selectedCustomer}
                       onChange={e => setSelectedCustomer(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '8px' }}
                     >
                       <option value="">انتخاب مشتری</option>
                       {customers.map(customer => (
@@ -488,9 +578,9 @@ export default function App() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">محصولات</label>
+                    <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#333', marginBottom: '8px' }}>محصولات</label>
                     {products.map(product => (
-                      <div key={product.id} className="flex items-center gap-2 mb-2">
+                      <div key={product.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
                         <input
                           type="checkbox"
                           onChange={e => {
@@ -500,20 +590,20 @@ export default function App() {
                               setSelectedProducts(selectedProducts.filter(sp => sp.productId !== product.id));
                             }
                           }}
-                          className="w-4 h-4"
+                          style={{ width: '18px', height: '18px' }}
                         />
-                        <span className="flex-1">{product.name}</span>
-                        <span className="text-gray-500">{product.price.toLocaleString('fa-IR')} تومان</span>
+                        <span style={{ flex: 1 }}>{product.name}</span>
+                        <span style={{ color: '#666' }}>{product.price.toLocaleString('fa-IR')} تومان</span>
                       </div>
                     ))}
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">نوع پرداخت</label>
+                    <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#333', marginBottom: '8px' }}>نوع پرداخت</label>
                     <select
                       value={paymentType}
                       onChange={e => setPaymentType(e.target.value as 'cash' | 'installment')}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '8px' }}
                     >
                       <option value="cash">نقدی</option>
                       <option value="installment">اقساطی</option>
@@ -522,7 +612,17 @@ export default function App() {
 
                   <button
                     onClick={createInvoice}
-                    className="w-full bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition"
+                    style={{
+                      width: '100%',
+                      background: '#10b981',
+                      color: 'white',
+                      padding: '12px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontWeight: '500',
+                      fontSize: '16px',
+                    }}
                   >
                     ✓ ایجاد فاکتور
                   </button>
@@ -530,33 +630,39 @@ export default function App() {
               </div>
             )}
 
-            <div className="bg-white rounded-xl shadow-lg p-6">
+            <div style={{ background: 'white', borderRadius: '12px', padding: '25px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
               {invoices.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">هنوز فاکتوری ثبت نشده است</p>
+                <p style={{ color: '#999', textAlign: 'center', padding: '30px' }}>هنوز فاکتوری ثبت نشده است</p>
               ) : (
-                <div className="space-y-4">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                   {invoices.map(invoice => {
                     const customer = customers.find(c => c.id === invoice.customerId);
                     return (
-                      <div key={invoice.id} className="border border-gray-200 rounded-lg p-4">
-                        <div className="flex justify-between items-start mb-3">
+                      <div key={invoice.id} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '20px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
                           <div>
-                            <p className="font-bold text-gray-800">مشتری: {customer?.name}</p>
-                            <p className="text-sm text-gray-500">تاریخ: {invoice.date}</p>
+                            <p style={{ fontWeight: 'bold', color: '#333', margin: '0 0 5px 0' }}>مشتری: {customer?.name}</p>
+                            <p style={{ fontSize: '14px', color: '#666', margin: 0 }}>تاریخ: {invoice.date}</p>
                           </div>
-                          <div className="text-left">
-                            <p className="text-2xl font-bold text-indigo-600">{invoice.total.toLocaleString('fa-IR')} تومان</p>
-                            <span className={`text-xs px-2 py-1 rounded ${invoice.paymentType === 'cash' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                          <div style={{ textAlign: 'left' }}>
+                            <p style={{ fontWeight: 'bold', color: '#667eea', fontSize: '20px', margin: '0 0 5px 0' }}>{invoice.total.toLocaleString('fa-IR')} تومان</p>
+                            <span style={{
+                              fontSize: '12px',
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              background: invoice.paymentType === 'cash' ? '#d1fae5' : '#fed7aa',
+                              color: invoice.paymentType === 'cash' ? '#065f46' : '#92400e',
+                            }}>
                               {invoice.paymentType === 'cash' ? 'نقدی' : 'اقساطی'}
                             </span>
                           </div>
                         </div>
-                        <div className="border-t border-gray-200 pt-3">
-                          <p className="text-sm font-medium text-gray-700 mb-2">محصولات:</p>
+                        <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '15px' }}>
+                          <p style={{ fontSize: '14px', fontWeight: '500', color: '#333', marginBottom: '10px' }}>محصولات:</p>
                           {invoice.items.map((item, idx) => {
                             const product = products.find(p => p.id === item.productId);
                             return (
-                              <div key={idx} className="flex justify-between text-sm text-gray-600">
+                              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: '#666', marginBottom: '5px' }}>
                                 <span>{product?.name} × {item.quantity}</span>
                                 <span>{(item.price * item.quantity).toLocaleString('fa-IR')} تومان</span>
                               </div>
