@@ -338,15 +338,12 @@ export default function App() {
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-bold">👥 مدیریت اشخاص</h2>
-          <div className="flex gap-2">
-            <button onClick={() => setShowGroupManager(!showGroupManager)} className="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-xl">📁 گروه‌ها</button>
-            <button onClick={() => { setShowForm(!showForm); setEditId(null); setForm({ type: 'customer', creditor: 0, debtor: 0, documents: [], guarantor: { id: generateId(), name: '', mobile: '', phone: '', nationalId: '', address: '', job: '', documents: [] } }); }}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl">{showForm ? '✕ بستن' : '➕ شخص جدید'}</button>
-          </div>
+          <button onClick={() => { setShowForm(!showForm); setEditId(null); setForm({ type: 'customer', creditor: 0, debtor: 0, documents: [], guarantor: { id: generateId(), name: '', mobile: '', phone: '', nationalId: '', address: '', job: '', documents: [] } }); }}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl">{showForm ? '✕ بستن' : '➕ شخص جدید'}</button>
         </div>
 
-        {/* Group Manager */}
-        {showGroupManager && (
+        {/* Group Manager - REMOVED */}
+        {!showGroupManager && false && (
           <div className="bg-slate-800/60 rounded-2xl p-6 border border-violet-500/30">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-violet-400">📁 مدیریت گروه اشخاص</h3>
