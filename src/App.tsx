@@ -733,12 +733,195 @@ export default function App() {
     );
   };
 
+  // Reports Section
+  const ReportsSection = () => {
+    const [reportType, setReportType] = useState<'lowStock' | 'sellers' | 'products'>('lowStock');
+    const [selProduct, setSelProduct] = useState('');
+    const [selSupplier, setSelSupplier] = useState('');
+
+    // Low Stock Report
+    const lowStockProducts = products.filter(p => !p.isDeleted && (p.stock <= p.minStock || p.stock <= p.reorderPoint));
+
+    // Sellers of a Product
+    const productSellers = selProduct ? invoices.filter(inv => 
+      inv.status === 'active' && 
+      inv.type === 'purchase' && 
+      inv.items.some(item => item.productId === selProduct)
+    ).map(inv => ({
+      invoice: inv,
+      supplier: people.find(p => p.id === inv.personId),
+      item: inv.items.find(item => item.productId === selProduct)!
+    })) : [];
+
+    // Products of a Supplier
+    const supplierProducts = selSupplier ? invoices.filter(inv => 
+      inv.status === 'active' && 
+      inv.type === 'purchase' && 
+      inv.personId === selSupplier
+    ).flatMap(inv => inv.items).reduce((acc, item) => {
+      const existing = acc.find(a => a.productId === item.productId);
+      if (existing) {
+        existing.quantity += item.quantity;
+        existing.totalValue += item.total;
+      } else {
+        acc.push({ ...item, totalValue: item.total });
+      }
+      return acc;
+    }, [] as (InvoiceItem & { totalValue: number })[]) : [];
+
+    return (
+      <div className="space-y-4">
+        <h2 className="text-2xl font-bold">📈 گزارش‌ها</h2>
+        
+        <div className="flex gap-2 flex-wrap">
+          <button onClick={() => setReportType('lowStock')} className={`px-4 py-2 rounded-xl ${reportType === 'lowStock' ? 'bg-amber-600 text-white' : 'bg-slate-700/50 text-slate-300'}`}>⚠️ کمبود کالا</button>
+          <button onClick={() => setReportType('sellers')} className={`px-4 py-2 rounded-xl ${reportType === 'sellers' ? 'bg-blue-600 text-white' : 'bg-slate-700/50 text-slate-300'}`}>👥 فروشندگان یک کالا</button>
+          <button onClick={() => setReportType('products')} className={`px-4 py-2 rounded-xl ${reportType === 'products' ? 'bg-emerald-600 text-white' : 'bg-slate-700/50 text-slate-300'}`}>📦 کالاهای یک فروشنده</button>
+        </div>
+
+        {reportType === 'lowStock' && (
+          <div className="bg-slate-800/60 rounded-2xl border border-amber-500/30 p-6">
+            <h3 className="text-lg font-bold text-amber-400 mb-4">⚠️ کالاهای با موجودی کم ({lowStockProducts.length})</h3>
+            {lowStockProducts.length === 0 ? (
+              <p className="text-slate-400 text-center py-8">✅ همه کالاها موجودی کافی دارند</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-700/50">
+                    <tr>
+                      <th className="px-3 py-2 text-right text-slate-300">کد</th>
+                      <th className="px-3 py-2 text-right text-slate-300">نام کالا</th>
+                      <th className="px-3 py-2 text-right text-slate-300">موجودی فعلی</th>
+                      <th className="px-3 py-2 text-right text-slate-300">حداقل موجودی</th>
+                      <th className="px-3 py-2 text-right text-slate-300">نقطه سفارش</th>
+                      <th className="px-3 py-2 text-right text-slate-300">وضعیت</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-700/50">
+                    {lowStockProducts.map(p => (
+                      <tr key={p.id} className="hover:bg-slate-700/20">
+                        <td className="px-3 py-2 text-slate-300">{p.code}</td>
+                        <td className="px-3 py-2 text-white">{getProductName(p)}</td>
+                        <td className="px-3 py-2 text-amber-400 font-bold">{p.stock}</td>
+                        <td className="px-3 py-2 text-slate-300">{p.minStock}</td>
+                        <td className="px-3 py-2 text-slate-300">{p.reorderPoint}</td>
+                        <td className="px-3 py-2">
+                          {p.stock === 0 ? (
+                            <span className="text-xs px-2 py-1 rounded-full bg-rose-500/20 text-rose-400">ناموجود</span>
+                          ) : p.stock <= p.minStock ? (
+                            <span className="text-xs px-2 py-1 rounded-full bg-amber-500/20 text-amber-400">بحرانی</span>
+                          ) : (
+                            <span className="text-xs px-2 py-1 rounded-full bg-yellow-500/20 text-yellow-400">کم</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {reportType === 'sellers' && (
+          <div className="bg-slate-800/60 rounded-2xl border border-blue-500/30 p-6">
+            <h3 className="text-lg font-bold text-blue-400 mb-4">👥 فروشندگان یک کالا</h3>
+            <select value={selProduct} onChange={e => setSelProduct(e.target.value)} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white mb-4">
+              <option value="">انتخاب کالا...</option>
+              {products.filter(p => !p.isDeleted).map(p => <option key={p.id} value={p.id}>{getProductName(p)} ({p.code})</option>)}
+            </select>
+            {selProduct && (
+              <>
+                {productSellers.length === 0 ? (
+                  <p className="text-slate-400 text-center py-8">این کالا هنوز خریداری نشده است</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-700/50">
+                        <tr>
+                          <th className="px-3 py-2 text-right text-slate-300">شماره فاکتور</th>
+                          <th className="px-3 py-2 text-right text-slate-300">فروشنده</th>
+                          <th className="px-3 py-2 text-right text-slate-300">تاریخ</th>
+                          <th className="px-3 py-2 text-right text-slate-300">تعداد</th>
+                          <th className="px-3 py-2 text-right text-slate-300">قیمت واحد</th>
+                          <th className="px-3 py-2 text-right text-slate-300">مبلغ کل</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-700/50">
+                        {productSellers.map(({ invoice, supplier, item }) => (
+                          <tr key={invoice.id} className="hover:bg-slate-700/20">
+                            <td className="px-3 py-2 text-white">{invoice.invoiceNumber}</td>
+                            <td className="px-3 py-2 text-slate-300">{supplier?.name || 'نامشخص'}</td>
+                            <td className="px-3 py-2 text-slate-300">{jalaliDate(invoice.date)}</td>
+                            <td className="px-3 py-2 text-slate-300">{item.quantity}</td>
+                            <td className="px-3 py-2 text-slate-300">{formatNumber(item.unitPrice)}</td>
+                            <td className="px-3 py-2 text-emerald-400 font-bold">{formatNumber(item.total)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {reportType === 'products' && (
+          <div className="bg-slate-800/60 rounded-2xl border border-emerald-500/30 p-6">
+            <h3 className="text-lg font-bold text-emerald-400 mb-4">📦 کالاهای یک فروشنده</h3>
+            <select value={selSupplier} onChange={e => setSelSupplier(e.target.value)} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white mb-4">
+              <option value="">انتخاب فروشنده...</option>
+              {people.filter(p => !p.isDeleted && p.type === 'supplier').map(p => <option key={p.id} value={p.id}>{p.name} ({p.mobile})</option>)}
+            </select>
+            {selSupplier && (
+              <>
+                {supplierProducts.length === 0 ? (
+                  <p className="text-slate-400 text-center py-8">این فروشنده هنوز کالایی نفروخته است</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-700/50">
+                        <tr>
+                          <th className="px-3 py-2 text-right text-slate-300">کد کالا</th>
+                          <th className="px-3 py-2 text-right text-slate-300">نام کالا</th>
+                          <th className="px-3 py-2 text-right text-slate-300">تعداد کل</th>
+                          <th className="px-3 py-2 text-right text-slate-300">میانگین قیمت</th>
+                          <th className="px-3 py-2 text-right text-slate-300">ارزش کل</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-700/50">
+                        {supplierProducts.map(item => {
+                          const product = products.find(p => p.id === item.productId);
+                          return (
+                            <tr key={item.productId} className="hover:bg-slate-700/20">
+                              <td className="px-3 py-2 text-slate-300">{product?.code || '-'}</td>
+                              <td className="px-3 py-2 text-white">{product ? getProductName(product) : 'نامشخص'}</td>
+                              <td className="px-3 py-2 text-slate-300">{item.quantity}</td>
+                              <td className="px-3 py-2 text-slate-300">{formatNumber(Math.round(item.totalValue / item.quantity))}</td>
+                              <td className="px-3 py-2 text-emerald-400 font-bold">{formatNumber(item.totalValue)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderSection = () => {
     switch (section) {
       case 'dashboard': return <Dashboard />;
       case 'inventory': return <InventorySection />;
       case 'cardex': return <CardexSection />;
       case 'people': return <PeopleSection />;
+      case 'reports': return <ReportsSection />;
       case 'settings': return <SettingsSection />;
       default: return <div className="text-center py-12 text-slate-400"><span className="text-5xl block mb-4">🚧</span>بخش در حال توسعه</div>;
     }
