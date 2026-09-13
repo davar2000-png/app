@@ -5,6 +5,12 @@ export interface CustomerType {
   color: string;
 }
 
+export interface PersonType {
+  id: string;
+  name: string;
+  icon: string;
+}
+
 export interface PersonDocument {
   id: string;
   name: string;
@@ -28,7 +34,7 @@ export interface Guarantor {
 
 export interface Person {
   id: string;
-  type: 'customer' | 'supplier' | 'guarantor' | 'employee' | 'other';
+  type: string;
   customerTypeId?: string;
   name: string;
   familyName?: string;

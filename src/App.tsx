@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type {
-  Person, PersonDocument, CustomerType, Guarantor, Product, CardexEntry,
+  Person, PersonDocument, CustomerType, PersonType, Guarantor, Product, CardexEntry,
   Invoice, InvoiceItem, Installment, Cheque, Bank,
   Payment, ReturnInvoice, Proforma, StoreSettings, SecuritySettings, InvoiceTag,
   ProductCategory, ProductBrand, ProductModel, ProductColor,
@@ -30,6 +30,13 @@ export default function App() {
     { id: 'regular', name: 'عادی', icon: '👤', color: '#3b82f6' },
     { id: 'wholesale', name: 'عمده', icon: '🏪', color: '#10b981' },
     { id: 'employee', name: 'کارمند', icon: '💼', color: '#8b5cf6' },
+  ]);
+  const [personTypes, setPersonTypes] = useLS<PersonType[]>('tk_person_types', [
+    { id: 'customer', name: 'مشتری', icon: '🛒' },
+    { id: 'supplier', name: 'تأمین‌کننده', icon: '🏭' },
+    { id: 'guarantor', name: 'ضامن', icon: '🛡️' },
+    { id: 'employee', name: 'کارمند', icon: '💼' },
+    { id: 'other', name: 'سایر', icon: '📋' },
   ]);
   const [products, setProducts] = useLS<Product[]>('tk_products', []);
   const [cardex, setCardex] = useLS<CardexEntry[]>('tk_cardex', []);
@@ -275,18 +282,20 @@ export default function App() {
   // People Section with full features
   const PeopleSection = () => {
     const [showForm, setShowForm] = useState(false);
-    const [showGroupManager, setShowGroupManager] = useState(false);
+    const [showTypeManager, setShowTypeManager] = useState(false);
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState('all');
     const [groupFilter, setGroupFilter] = useState('all');
-    const [form, setForm] = useState<Partial<Person>>({ type: 'customer', creditor: 0, debtor: 0, documents: [], guarantor: { id: generateId(), name: '', mobile: '', phone: '', nationalId: '', address: '', job: '', documents: [] } });
+    const [form, setForm] = useState<Partial<Person>>({ type: personTypes[0]?.id || 'customer', creditor: 0, debtor: 0, documents: [], guarantor: { id: generateId(), name: '', mobile: '', phone: '', nationalId: '', address: '', job: '', documents: [] } });
     const [editId, setEditId] = useState<string | null>(null);
     const [viewDocs, setViewDocs] = useState<{person: Person, type: 'person' | 'guarantor'} | null>(null);
-    const [newGroupName, setNewGroupName] = useState('');
-    const [newGroupColor, setNewGroupColor] = useState('#3b82f6');
-    const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
-    const [editGroupName, setEditGroupName] = useState('');
-    const [editGroupColor, setEditGroupColor] = useState('#3b82f6');
+    
+    // Person Type Management
+    const [newTypeName, setNewTypeName] = useState('');
+    const [newTypeIcon, setNewTypeIcon] = useState('👤');
+    const [editingTypeId, setEditingTypeId] = useState<string | null>(null);
+    const [editTypeName, setEditTypeName] = useState('');
+    const [editTypeIcon, setEditTypeIcon] = useState('👤');
 
     const filtered = people.filter(p => !p.isDeleted &&
       (filter === 'all' || p.type === filter) &&
@@ -332,7 +341,10 @@ export default function App() {
       }
     };
 
-    const typeLabel: Record<string,string> = { customer: 'مشتری', supplier: 'تأمین‌کننده', guarantor: 'ضامن', employee: 'کارمند', other: 'سایر' };
+    const getTypeLabel = (typeId: string) => {
+      const type = personTypes.find(t => t.id === typeId);
+      return type ? `${type.icon} ${type.name}` : typeId;
+    };
 
     return (
       <div className="space-y-4">
@@ -342,63 +354,64 @@ export default function App() {
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl">{showForm ? '✕ بستن' : '➕ شخص جدید'}</button>
         </div>
 
-        {/* Group Manager - REMOVED */}
-        {!showGroupManager && false && (
+        {/* Person Type Manager */}
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-bold text-violet-400">🏷️ مدیریت نوع شخص</h3>
+          <button onClick={() => setShowTypeManager(!showTypeManager)} className="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-xl text-sm">
+            {showTypeManager ? '✕ بستن' : '➕ مدیریت'}
+          </button>
+        </div>
+        
+        {showTypeManager && (
           <div className="bg-slate-800/60 rounded-2xl p-6 border border-violet-500/30">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-violet-400">📁 مدیریت گروه اشخاص</h3>
-              <button onClick={() => setShowGroupManager(false)} className="text-slate-400 hover:text-white text-xl">✕</button>
-            </div>
-            
-            {/* افزودن گروه جدید */}
+            {/* افزودن نوع جدید */}
             <div className="bg-slate-700/30 rounded-xl p-4 mb-4">
-              <h4 className="text-slate-300 text-sm font-bold mb-3">➕ افزودن گروه جدید</h4>
+              <h4 className="text-slate-300 text-sm font-bold mb-3">➕ افزودن نوع شخص جدید</h4>
               <div className="flex gap-2">
-                <input value={newGroupName} onChange={e=>setNewGroupName(e.target.value)} placeholder="نام گروه" className="flex-1 bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
-                <input type="color" value={newGroupColor} onChange={e=>setNewGroupColor(e.target.value)} className="w-16 h-10 bg-slate-700/50 border border-slate-600 rounded-xl cursor-pointer" />
+                <input value={newTypeName} onChange={e=>setNewTypeName(e.target.value)} placeholder="نام نوع (مثلاً: مشتری VIP)" className="flex-1 bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+                <input value={newTypeIcon} onChange={e=>setNewTypeIcon(e.target.value)} placeholder="👤" className="w-16 bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white text-center" />
                 <button onClick={()=>{
-                  if(!newGroupName) return;
-                  setCustomerTypes([...customerTypes, { id: generateId(), name: newGroupName, icon: '👤', color: newGroupColor }]);
-                  setNewGroupName(''); setNewGroupColor('#3b82f6');
+                  if(!newTypeName) return;
+                  setPersonTypes([...personTypes, { id: generateId(), name: newTypeName, icon: newTypeIcon }]);
+                  setNewTypeName(''); setNewTypeIcon('👤');
                 }} className="px-4 bg-violet-600 hover:bg-violet-700 text-white rounded-xl">➕ افزودن</button>
               </div>
             </div>
             
-            {/* لیست گروه‌ها */}
+            {/* لیست انواع */}
             <div className="space-y-2">
-              <h4 className="text-slate-300 text-sm font-bold mb-2">📋 لیست نوع‌های مشتری ({customerTypes.length})</h4>
-              {customerTypes.length === 0 ? (
-                <p className="text-slate-500 text-center py-4">هیچ گروهی تعریف نشده است</p>
+              <h4 className="text-slate-300 text-sm font-bold mb-2">📋 لیست انواع شخص ({personTypes.length})</h4>
+              {personTypes.length === 0 ? (
+                <p className="text-slate-500 text-center py-4">هیچ نوعی تعریف نشده است</p>
               ) : (
-                customerTypes.map((g: CustomerType) => (
-                  <div key={g.id} className="bg-slate-700/30 rounded-xl p-3">
-                    {editingGroupId === g.id ? (
+                personTypes.map((t: PersonType) => (
+                  <div key={t.id} className="bg-slate-700/30 rounded-xl p-3">
+                    {editingTypeId === t.id ? (
                       // حالت ویرایش
                       <div className="flex gap-2">
                         <input 
-                          value={editGroupName} 
-                          onChange={e=>setEditGroupName(e.target.value)} 
-                          placeholder="نام گروه" 
+                          value={editTypeName} 
+                          onChange={e=>setEditTypeName(e.target.value)} 
+                          placeholder="نام نوع" 
                           className="flex-1 bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white" 
                         />
                         <input 
-                          type="color" 
-                          value={editGroupColor} 
-                          onChange={e=>setEditGroupColor(e.target.value)} 
-                          className="w-12 h-10 bg-slate-700/50 border border-slate-600 rounded-lg cursor-pointer" 
+                          value={editTypeIcon} 
+                          onChange={e=>setEditTypeIcon(e.target.value)} 
+                          className="w-16 bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-white text-center" 
                         />
                         <button 
                           onClick={()=>{
-                            if(!editGroupName) return;
-                            setCustomerTypes(customerTypes.map((x: CustomerType) => x.id === g.id ? {...x, name: editGroupName, color: editGroupColor} : x));
-                            setEditingGroupId(null);
+                            if(!editTypeName) return;
+                            setPersonTypes(personTypes.map((x: PersonType) => x.id === t.id ? {...x, name: editTypeName, icon: editTypeIcon} : x));
+                            setEditingTypeId(null);
                           }} 
                           className="px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg"
                         >
                           ✓
                         </button>
                         <button 
-                          onClick={()=>setEditingGroupId(null)} 
+                          onClick={()=>setEditingTypeId(null)} 
                           className="px-3 bg-slate-600 hover:bg-slate-500 text-white rounded-lg"
                         >
                           ✕
@@ -408,15 +421,15 @@ export default function App() {
                       // حالت نمایش
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="w-5 h-5 rounded-full" style={{backgroundColor: g.color}} />
-                          <span className="text-white font-medium">{g.name}</span>
+                          <span className="text-2xl">{t.icon}</span>
+                          <span className="text-white font-medium">{t.name}</span>
                         </div>
                         <div className="flex gap-2">
                           <button 
                             onClick={()=>{
-                              setEditingGroupId(g.id);
-                              setEditGroupName(g.name);
-                              setEditGroupColor(g.color);
+                              setEditingTypeId(t.id);
+                              setEditTypeName(t.name);
+                              setEditTypeIcon(t.icon);
                             }} 
                             className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"
                           >
@@ -424,9 +437,9 @@ export default function App() {
                           </button>
                           <button 
                             onClick={()=>{
-                              if(confirm(`حذف گروه "${g.name}"؟\nاشخاص این گروه بدون گروه خواهند شد.`)){
-                                setCustomerTypes(customerTypes.filter((x: CustomerType)=>x.id!==g.id));
-                                setPeople(people.map(p=>p.customerTypeId===g.id?{...p,customerTypeId:undefined}:p));
+                              if(confirm(`حذف نوع "${t.name}"؟\nاشخاص این نوع بدون نوع خواهند شد.`)){
+                                setPersonTypes(personTypes.filter((x: PersonType)=>x.id!==t.id));
+                                setPeople(people.map(p=>p.type===t.id?{...p,type:personTypes[0]?.id || 'customer'}:p));
                               }
                             }} 
                             className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm"
@@ -452,26 +465,21 @@ export default function App() {
             <div className="mb-4 bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
               <label className="text-blue-400 text-sm font-bold mb-2 block">🏷️ نوع شخص *</label>
               <select 
-                value={form.type || 'customer'} 
+                value={form.type || personTypes[0]?.id || 'customer'} 
                 onChange={e => {
                   const newType = e.target.value;
                   setForm({ 
                     ...form, 
-                    type: newType as any,
-                    // اگر فروشنده باشد، ضامن حذف شود
+                    type: newType,
+                    // اگر تأمین‌کننده باشد، ضامن حذف شود
                     guarantor: newType === 'supplier' ? undefined : form.guarantor
                   });
                 }} 
                 className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white"
               >
-                <option value="customer">🛒 خریدار (مشتری)</option>
-                <option value="supplier">🏪 فروشنده (تأمین‌کننده)</option>
-                <option value="pensioner">💰 مستمری‌بگیر</option>
-                <option value="employee_irib">📺 کارمند صدا و سیما</option>
-                <option value="employee_azad">🎓 کارمند دانشگاه آزاد</option>
-                <option value="employee_mohaghegh">🎓 کارمند دانشگاه محقق اردبیلی</option>
-                <option value="employee_faranja">👮 پرسنل فراجا</option>
-                <option value="welfare_card">🎫 دارنده کارت رفاهی (اوراق گام)</option>
+                {personTypes.map((t: PersonType) => (
+                  <option key={t.id} value={t.id}>{t.icon} {t.name}</option>
+                ))}
               </select>
             </div>
             
@@ -687,7 +695,7 @@ export default function App() {
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-white font-medium">{p.name} {p.familyName||''}</span>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">{typeLabel[p.type]}</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">{getTypeLabel(p.type)}</span>
                       {p.customerTypeId && (() => {
                         const g = customerTypes.find((x: CustomerType) => x.id === p.customerTypeId);
                         return g ? <span className="text-xs px-2 py-0.5 rounded-full" style={{backgroundColor: g.color+'30', color: g.color}}>{g.icon} {g.name}</span> : null;
