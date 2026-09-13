@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import type {
   Person, PersonDocument, PersonGroup, Guarantor, Product, CardexEntry,
   Invoice, InvoiceItem, Installment, Cheque, Bank,
+  Payment, ReturnInvoice, Proforma, StoreSettings,
   ProductCategory, ProductBrand, ProductModel, ProductColor,
   AuditLog, Section
 } from './types';
@@ -29,8 +30,20 @@ export default function App() {
   const [products, setProducts] = useLS<Product[]>('tk_products', []);
   const [cardex, setCardex] = useLS<CardexEntry[]>('tk_cardex', []);
   const [invoices, setInvoices] = useLS<Invoice[]>('tk_invoices', []);
+  const [payments, setPayments] = useLS<Payment[]>('tk_payments', []);
+  const [returnInvoices, setReturnInvoices] = useLS<ReturnInvoice[]>('tk_returns', []);
+  const [proformas, setProformas] = useLS<Proforma[]>('tk_proformas', []);
   const [cheques, setCheques] = useLS<Cheque[]>('tk_cheques', []);
   const [banks, setBanks] = useLS<Bank[]>('tk_banks', []);
+  const [storeSettings, setStoreSettings] = useLS<StoreSettings>('tk_store_settings', {
+    storeName: 'تکنوکالا',
+    manager: '',
+    address: '',
+    phone: '',
+    mobile: '',
+    printFooter: 'با تشکر از خرید شما',
+    defaultPaper: 'A5',
+  });
   const [categories, setCategories] = useLS<ProductCategory[]>('tk_cat', [
     { id: 'phone', name: 'گوشی موبایل', icon: '📱' },
     { id: 'laptop', name: 'لپ‌تاپ', icon: '💻' },
@@ -886,6 +899,362 @@ export default function App() {
     );
   };
 
+  // Payments Section (تسویه و تاریخچه پرداخت)
+  const PaymentsSection = () => {
+    const [showForm, setShowForm] = useState(false);
+    const [form, setForm] = useState<Partial<Payment>>({ kind: 'sale', method: 'cash', amount: 0 });
+    const [filter, setFilter] = useState<'all' | 'sale' | 'purchase'>('all');
+
+    const filteredPayments = payments.filter(p => filter === 'all' || p.kind === filter).sort((a, b) => b.date.localeCompare(a.date));
+    const totalReceived = payments.filter(p => p.kind === 'sale').reduce((s, p) => s + p.amount, 0);
+    const totalPaid = payments.filter(p => p.kind === 'purchase').reduce((s, p) => s + p.amount, 0);
+
+    const save = () => {
+      if (!form.invoiceId || !form.personId || !form.amount) return alert('فیلدهای الزامی را پر کنید');
+      const newPayment: Payment = {
+        ...form,
+        id: generateId(),
+        amount: Number(form.amount),
+        date: form.date || getTodayDate(),
+        createdAt: new Date().toISOString(),
+      } as Payment;
+      setPayments(prev => [newPayment, ...prev]);
+      log('CREATE', 'payment', newPayment.id, `پرداخت ${formatNumber(newPayment.amount)}`);
+      setForm({ kind: 'sale', method: 'cash', amount: 0 });
+      setShowForm(false);
+    };
+
+    const methodLabel: Record<string, string> = { cash: 'نقدی', card: 'کارت', check: 'چک', voucher: 'تهاتر', transfer: 'انتقال' };
+
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold">💰 تسویه و تاریخچه پرداخت</h2>
+          <button onClick={() => setShowForm(!showForm)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl">
+            {showForm ? '✕ بستن' : '➕ ثبت پرداخت'}
+          </button>
+        </div>
+
+        {showForm && (
+          <div className="bg-slate-800/60 rounded-2xl p-6 border border-slate-700/50">
+            <h3 className="text-lg font-bold mb-4">ثبت پرداخت جدید</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <select value={form.kind} onChange={e => setForm({ ...form, kind: e.target.value as any })} className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white">
+                <option value="sale">دریافت از مشتری</option>
+                <option value="purchase">پرداخت به تأمین‌کننده</option>
+              </select>
+              <select value={form.method} onChange={e => setForm({ ...form, method: e.target.value as any })} className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white">
+                <option value="cash">نقدی</option>
+                <option value="card">کارت</option>
+                <option value="check">چک</option>
+                <option value="voucher">تهاتر</option>
+                <option value="transfer">انتقال</option>
+              </select>
+              <input type="number" value={form.amount || ''} onChange={e => setForm({ ...form, amount: Number(e.target.value) })} placeholder="مبلغ *" className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+              <select value={form.personId || ''} onChange={e => setForm({ ...form, personId: e.target.value })} className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white">
+                <option value="">انتخاب شخص *</option>
+                {people.filter(p => !p.isDeleted).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+              <select value={form.invoiceId || ''} onChange={e => setForm({ ...form, invoiceId: e.target.value })} className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white">
+                <option value="">انتخاب فاکتور *</option>
+                {invoices.filter(i => i.status === 'active' && i.type === form.kind).map(i => <option key={i.id} value={i.id}>{i.invoiceNumber} - {formatNumber(i.remaining)} باقیمانده</option>)}
+              </select>
+              <input type="date" value={form.date || ''} onChange={e => setForm({ ...form, date: e.target.value })} className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+            </div>
+            <textarea value={form.note || ''} onChange={e => setForm({ ...form, note: e.target.value })} placeholder="توضیحات" rows={2} className="mt-3 w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+            <button onClick={save} className="mt-3 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl">💾 ذخیره</button>
+          </div>
+        )}
+
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-emerald-500/10 rounded-xl p-3 text-center">
+            <p className="text-emerald-400 text-sm">کل دریافتی</p>
+            <p className="text-xl font-bold text-white">{formatNumber(totalReceived)}</p>
+          </div>
+          <div className="bg-rose-500/10 rounded-xl p-3 text-center">
+            <p className="text-rose-400 text-sm">کل پرداختی</p>
+            <p className="text-xl font-bold text-white">{formatNumber(totalPaid)}</p>
+          </div>
+          <div className="bg-blue-500/10 rounded-xl p-3 text-center">
+            <p className="text-blue-400 text-sm">تعداد پرداخت‌ها</p>
+            <p className="text-xl font-bold text-white">{payments.length}</p>
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          {(['all', 'sale', 'purchase'] as const).map(f => (
+            <button key={f} onClick={() => setFilter(f)} className={`px-4 py-2 rounded-xl ${filter === f ? 'bg-blue-600 text-white' : 'bg-slate-700/50 text-slate-300'}`}>
+              {f === 'all' ? 'همه' : f === 'sale' ? 'دریافتی' : 'پرداختی'}
+            </button>
+          ))}
+        </div>
+
+        <div className="bg-slate-800/60 rounded-2xl border border-slate-700/50 overflow-hidden">
+          <div className="max-h-[500px] overflow-y-auto divide-y divide-slate-700/50">
+            {filteredPayments.map(p => (
+              <div key={p.id} className="p-3 hover:bg-slate-700/20 flex justify-between items-center">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${p.kind === 'sale' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                      {p.kind === 'sale' ? 'دریافت' : 'پرداخت'}
+                    </span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">{methodLabel[p.method]}</span>
+                  </div>
+                  <p className="text-white text-sm mt-1">{people.find(p2 => p2.id === p.personId)?.name || 'نامشخص'}</p>
+                  <p className="text-slate-400 text-xs">{jalaliDate(p.date)} {p.note && `| ${p.note}`}</p>
+                </div>
+                <p className={`font-bold ${p.kind === 'sale' ? 'text-emerald-400' : 'text-rose-400'}`}>{formatNumber(p.amount)} تومان</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Returns Section (برگشت از فروش/خرید)
+  const ReturnsSection = () => {
+    const [showForm, setShowForm] = useState(false);
+    const [form, setForm] = useState<Partial<ReturnInvoice>>({ type: 'sale', items: [] });
+    const [selInvoice, setSelInvoice] = useState('');
+
+    const handleInvoiceSelect = (invoiceId: string) => {
+      setSelInvoice(invoiceId);
+      const invoice = invoices.find(i => i.id === invoiceId);
+      if (invoice) {
+        setForm({ ...form, sourceInvoiceId: invoiceId, personId: invoice.personId, items: invoice.items, total: invoice.total });
+      }
+    };
+
+    const save = () => {
+      if (!form.sourceInvoiceId || !form.personId) return alert('فاکتور مبدأ را انتخاب کنید');
+      const newReturn: ReturnInvoice = {
+        ...form,
+        id: generateId(),
+        total: Number(form.total),
+        date: getTodayDate(),
+        createdAt: new Date().toISOString(),
+      } as ReturnInvoice;
+      setReturnInvoices(prev => [newReturn, ...prev]);
+      
+      // بازگشت موجودی به انبار
+      form.items?.forEach(item => {
+        setProducts(prev => prev.map(p => p.id === item.productId ? { ...p, stock: p.stock + item.quantity } : p));
+      });
+      
+      log('CREATE', 'return', newReturn.id, `برگشت ${formatNumber(newReturn.total)}`);
+      setForm({ type: 'sale', items: [] });
+      setSelInvoice('');
+      setShowForm(false);
+      alert('✅ برگشت ثبت شد و موجودی به‌روزرسانی شد');
+    };
+
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold">🔄 برگشت از فروش/خرید</h2>
+          <button onClick={() => setShowForm(!showForm)} className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-xl">
+            {showForm ? '✕ بستن' : '➕ ثبت برگشت'}
+          </button>
+        </div>
+
+        {showForm && (
+          <div className="bg-slate-800/60 rounded-2xl p-6 border border-slate-700/50">
+            <h3 className="text-lg font-bold mb-4">ثبت برگشت جدید</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value as any })} className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white">
+                <option value="sale">برگشت از فروش</option>
+                <option value="purchase">برگشت از خرید</option>
+              </select>
+              <select value={selInvoice} onChange={e => handleInvoiceSelect(e.target.value)} className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white">
+                <option value="">انتخاب فاکتور مبدأ *</option>
+                {invoices.filter(i => i.status === 'active' && i.type === form.type).map(i => (
+                  <option key={i.id} value={i.id}>{i.invoiceNumber} - {people.find(p => p.id === i.personId)?.name} - {formatNumber(i.total)}</option>
+                ))}
+              </select>
+            </div>
+            {form.items && form.items.length > 0 && (
+              <div className="mt-4">
+                <h4 className="text-slate-300 text-sm mb-2">اقلام برگشتی:</h4>
+                <div className="space-y-2">
+                  {form.items.map(item => (
+                    <div key={item.id} className="bg-slate-700/30 rounded-xl p-3 flex justify-between">
+                      <span className="text-white">{item.productName}</span>
+                      <span className="text-slate-300">{item.quantity} × {formatNumber(item.unitPrice)}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 text-left">
+                  <span className="text-slate-400">مبلغ کل: </span>
+                  <span className="text-amber-400 font-bold text-lg">{formatNumber(form.total || 0)} تومان</span>
+                </div>
+              </div>
+            )}
+            <textarea value={form.reason || ''} onChange={e => setForm({ ...form, reason: e.target.value })} placeholder="دلیل برگشت" rows={2} className="mt-3 w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+            <button onClick={save} className="mt-3 w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded-xl">💾 ثبت برگشت</button>
+          </div>
+        )}
+
+        <div className="bg-slate-800/60 rounded-2xl border border-slate-700/50 overflow-hidden">
+          <div className="p-4 border-b border-slate-700/50">
+            <span className="text-slate-400 text-sm">{returnInvoices.length} برگشت</span>
+          </div>
+          <div className="max-h-[500px] overflow-y-auto divide-y divide-slate-700/50">
+            {returnInvoices.map(r => (
+              <div key={r.id} className="p-3 hover:bg-slate-700/20 flex justify-between items-center">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${r.type === 'sale' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                      {r.type === 'sale' ? 'برگشت فروش' : 'برگشت خرید'}
+                    </span>
+                  </div>
+                  <p className="text-white text-sm mt-1">{people.find(p => p.id === r.personId)?.name || 'نامشخص'}</p>
+                  <p className="text-slate-400 text-xs">{jalaliDate(r.date)} {r.reason && `| ${r.reason}`}</p>
+                </div>
+                <p className="text-amber-400 font-bold">{formatNumber(r.total)} تومان</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Proformas Section (پیش‌فاکتور)
+  const ProformasSection = () => {
+    const [showForm, setShowForm] = useState(false);
+    const [form, setForm] = useState<Partial<Proforma>>({ items: [], status: 'active' });
+    const [selProduct, setSelProduct] = useState('');
+    const [qty, setQty] = useState(1);
+    const [price, setPrice] = useState('');
+
+    const addItem = () => {
+      const product = products.find(p => p.id === selProduct);
+      if (!product || !price) return;
+      const item: InvoiceItem = {
+        id: generateId(),
+        productId: product.id,
+        productName: getProductName(product),
+        quantity: qty,
+        unitPrice: Number(price),
+        total: qty * Number(price),
+      };
+      setForm({ ...form, items: [...(form.items || []), item], total: (form.total || 0) + item.total });
+      setSelProduct(''); setQty(1); setPrice('');
+    };
+
+    const save = () => {
+      if (!form.personId || !form.items?.length) return alert('شخص و اقلام را انتخاب کنید');
+      const newProforma: Proforma = {
+        ...form,
+        id: generateId(),
+        total: Number(form.total),
+        date: getTodayDate(),
+        createdAt: new Date().toISOString(),
+      } as Proforma;
+      setProformas(prev => [newProforma, ...prev]);
+      log('CREATE', 'proforma', newProforma.id, `پیش‌فاکتور ${formatNumber(newProforma.total)}`);
+      setForm({ items: [], status: 'active' });
+      setShowForm(false);
+    };
+
+    const convertToInvoice = (proformaId: string) => {
+      const proforma = proformas.find(p => p.id === proformaId);
+      if (!proforma) return;
+      const invoice: Invoice = {
+        id: generateId(),
+        invoiceNumber: generateInvoiceNumber('sale'),
+        type: 'sale',
+        personId: proforma.personId,
+        items: proforma.items,
+        total: proforma.total,
+        discount: 0,
+        paid: 0,
+        remaining: proforma.total,
+        paymentType: 'cash',
+        status: 'active',
+        date: getTodayDate(),
+        createdAt: new Date().toISOString(),
+      };
+      setInvoices(prev => [invoice, ...prev]);
+      setProformas(prev => prev.map(p => p.id === proformaId ? { ...p, status: 'converted' as const, convertedInvoiceId: invoice.id } : p));
+      log('UPDATE', 'proforma', proformaId, 'تبدیل به فاکتور');
+      alert('✅ پیش‌فاکتور به فاکتور تبدیل شد');
+    };
+
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold">📄 پیش‌فاکتورها</h2>
+          <button onClick={() => setShowForm(!showForm)} className="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-xl">
+            {showForm ? '✕ بستن' : '➕ پیش‌فاکتور جدید'}
+          </button>
+        </div>
+
+        {showForm && (
+          <div className="bg-slate-800/60 rounded-2xl p-6 border border-slate-700/50">
+            <h3 className="text-lg font-bold mb-4">ثبت پیش‌فاکتور جدید</h3>
+            <select value={form.personId || ''} onChange={e => setForm({ ...form, personId: e.target.value })} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white mb-3">
+              <option value="">انتخاب مشتری *</option>
+              {people.filter(p => !p.isDeleted && p.type === 'customer').map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            <div className="grid grid-cols-3 gap-3 mb-3">
+              <select value={selProduct} onChange={e => { setSelProduct(e.target.value); const p = products.find(x => x.id === e.target.value); if (p) setPrice(p.sellPrice.toString()); }} className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white">
+                <option value="">کالا...</option>
+                {products.filter(p => !p.isDeleted).map(p => <option key={p.id} value={p.id}>{getProductName(p)}</option>)}
+              </select>
+              <input type="number" value={qty} onChange={e => setQty(Number(e.target.value))} min="1" className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" placeholder="تعداد" />
+              <input type="number" value={price} onChange={e => setPrice(e.target.value)} className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" placeholder="قیمت" />
+            </div>
+            <button onClick={addItem} className="w-full bg-blue-600 text-white py-2 rounded-xl mb-3">➕ افزودن قلم</button>
+            {form.items && form.items.length > 0 && (
+              <div className="space-y-2 mb-3">
+                {form.items.map(item => (
+                  <div key={item.id} className="bg-slate-700/30 rounded-xl p-3 flex justify-between">
+                    <span className="text-white">{item.productName}</span>
+                    <span className="text-violet-400">{formatNumber(item.total)}</span>
+                  </div>
+                ))}
+                <div className="text-left text-lg">
+                  <span className="text-slate-400">مبلغ کل: </span>
+                  <span className="text-violet-400 font-bold">{formatNumber(form.total || 0)} تومان</span>
+                </div>
+              </div>
+            )}
+            <button onClick={save} className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold py-3 rounded-xl">💾 ثبت پیش‌فاکتور</button>
+          </div>
+        )}
+
+        <div className="bg-slate-800/60 rounded-2xl border border-slate-700/50 overflow-hidden">
+          <div className="p-4 border-b border-slate-700/50">
+            <span className="text-slate-400 text-sm">{proformas.length} پیش‌فاکتور</span>
+          </div>
+          <div className="max-h-[500px] overflow-y-auto divide-y divide-slate-700/50">
+            {proformas.map(p => (
+              <div key={p.id} className="p-3 hover:bg-slate-700/20 flex justify-between items-center">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${p.status === 'active' ? 'bg-violet-500/20 text-violet-400' : p.status === 'converted' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-500/20 text-slate-400'}`}>
+                      {p.status === 'active' ? 'فعال' : p.status === 'converted' ? 'تبدیل شده' : 'لغو شده'}
+                    </span>
+                  </div>
+                  <p className="text-white text-sm mt-1">{people.find(p2 => p2.id === p.personId)?.name || 'نامشخص'}</p>
+                  <p className="text-slate-400 text-xs">{jalaliDate(p.date)} | {p.items.length} قلم</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <p className="text-violet-400 font-bold">{formatNumber(p.total)} تومان</p>
+                  {p.status === 'active' && (
+                    <button onClick={() => convertToInvoice(p.id)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded-lg text-sm">تبدیل به فاکتور</button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Reports Section
   const ReportsSection = () => {
     const [reportType, setReportType] = useState<'lowStock' | 'sellers' | 'products'>('lowStock');
@@ -1074,6 +1443,9 @@ export default function App() {
       case 'inventory': return <InventorySection />;
       case 'cardex': return <CardexSection />;
       case 'people': return <PeopleSection />;
+      case 'payments': return <PaymentsSection />;
+      case 'returns': return <ReturnsSection />;
+      case 'proformas': return <ProformasSection />;
       case 'reports': return <ReportsSection />;
       case 'settings': return <SettingsSection />;
       default: return <div className="text-center py-12 text-slate-400"><span className="text-5xl block mb-4">🚧</span>بخش در حال توسعه</div>;
@@ -1085,16 +1457,10 @@ export default function App() {
     { id: 'inventory', label: 'کالا و انبار', icon: '🏭' },
     { id: 'cardex', label: 'کاردکس', icon: '📊' },
     { id: 'people', label: 'اشخاص', icon: '👥' },
-    { id: 'purchase', label: 'فاکتور خرید', icon: '🛒' },
-    { id: 'sale', label: 'فاکتور فروش', icon: '💰' },
-    { id: 'invoices', label: 'لیست فاکتورها', icon: '📋' },
-    { id: 'returns', label: 'برگشت', icon: '🔄' },
-    { id: 'cheques', label: 'چک‌ها', icon: '📝' },
-    { id: 'installments', label: 'اقساط', icon: '💳' },
-    { id: 'banks', label: 'بانک‌ها', icon: '🏦' },
+    { id: 'payments', label: 'تسویه حساب', icon: '💰' },
+    { id: 'returns', label: 'برگشت از فروش', icon: '🔄' },
+    { id: 'proformas', label: 'پیش‌فاکتور', icon: '📄' },
     { id: 'reports', label: 'گزارش‌ها', icon: '📈' },
-    { id: 'audit', label: 'ردیابی', icon: '📜' },
-    { id: 'import', label: 'ورود اکسل', icon: '📥' },
     { id: 'settings', label: 'تنظیمات', icon: '⚙️' },
   ];
 

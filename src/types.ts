@@ -175,6 +175,74 @@ export interface Bank {
   createdAt: string;
 }
 
+export interface BankAccount {
+  id: string;
+  bankId: string;
+  accountName: string;
+  accountNumber: string;
+  balance: number;
+  createdAt: string;
+}
+
+export interface BankTransaction {
+  id: string;
+  accountId: string;
+  type: 'deposit' | 'withdrawal' | 'transfer';
+  amount: number;
+  description?: string;
+  toAccountId?: string;
+  date: string;
+  createdAt: string;
+}
+
+export interface Payment {
+  id: string;
+  kind: 'sale' | 'purchase';
+  invoiceId: string;
+  personId: string;
+  accountId?: string;
+  checkId?: string;
+  amount: number;
+  method: 'cash' | 'card' | 'check' | 'voucher' | 'transfer';
+  date: string;
+  note?: string;
+  createdAt: string;
+}
+
+export interface ReturnInvoice {
+  id: string;
+  type: 'sale' | 'purchase';
+  sourceInvoiceId: string;
+  personId: string;
+  items: InvoiceItem[];
+  total: number;
+  reason?: string;
+  date: string;
+  createdAt: string;
+}
+
+export interface Proforma {
+  id: string;
+  personId: string;
+  items: InvoiceItem[];
+  total: number;
+  status: 'active' | 'converted' | 'cancelled';
+  convertedInvoiceId?: string;
+  date: string;
+  createdAt: string;
+}
+
+export interface StoreSettings {
+  storeName: string;
+  manager: string;
+  address: string;
+  phone: string;
+  mobile: string;
+  logo?: string;
+  printFooter: string;
+  defaultPaper: 'A4' | 'A5';
+}
+
 export interface AuditLog {
   id: string;
   action: 'CREATE' | 'UPDATE' | 'DELETE' | 'CANCEL' | 'RETURN' | 'PAYMENT';
@@ -194,6 +262,8 @@ export type Section =
   | 'sale'
   | 'invoices'
   | 'returns'
+  | 'proformas'
+  | 'payments'
   | 'cheques'
   | 'installments'
   | 'banks'
