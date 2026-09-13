@@ -2179,10 +2179,13 @@ export default function App() {
 
   const menuItems: { id: Section; label: string; icon: string }[] = [
     { id: 'dashboard', label: 'داشبورد', icon: '🏠' },
+    { id: 'purchase', label: 'فاکتور خرید', icon: '🛒' },
+    { id: 'sale', label: 'فاکتور فروش', icon: '💰' },
+    { id: 'invoices', label: 'لیست فاکتورها', icon: '📋' },
     { id: 'inventory', label: 'کالا و انبار', icon: '🏭' },
     { id: 'cardex', label: 'کاردکس', icon: '📊' },
     { id: 'people', label: 'اشخاص', icon: '👥' },
-    { id: 'payments', label: 'تسویه حساب', icon: '💰' },
+    { id: 'payments', label: 'تسویه حساب', icon: '💳' },
     { id: 'returns', label: 'برگشت از فروش', icon: '🔄' },
     { id: 'proformas', label: 'پیش‌فاکتور', icon: '📄' },
     { id: 'reports', label: 'گزارش‌ها', icon: '📈' },
