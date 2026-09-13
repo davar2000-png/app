@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type {
-  Person, PersonDocument, PersonGroup, Guarantor, Product, CardexEntry,
+  Person, PersonDocument, CustomerType, Guarantor, Product, CardexEntry,
   Invoice, InvoiceItem, Installment, Cheque, Bank,
   Payment, ReturnInvoice, Proforma, StoreSettings, SecuritySettings, InvoiceTag,
   ProductCategory, ProductBrand, ProductModel, ProductColor,
@@ -25,7 +25,12 @@ function useLS<T>(key: string, init: T): [T, React.Dispatch<React.SetStateAction
 
 export default function App() {
   const [people, setPeople] = useLS<Person[]>('tk_people', []);
-  const [personGroups, setPersonGroups] = useLS<PersonGroup[]>('tk_person_groups', []);
+  const [customerTypes, setCustomerTypes] = useLS<CustomerType[]>('tk_customer_types', [
+    { id: 'vip', name: 'VIP', icon: '💎', color: '#f59e0b' },
+    { id: 'regular', name: 'عادی', icon: '👤', color: '#3b82f6' },
+    { id: 'wholesale', name: 'عمده', icon: '🏪', color: '#10b981' },
+    { id: 'employee', name: 'کارمند', icon: '💼', color: '#8b5cf6' },
+  ]);
   const [products, setProducts] = useLS<Product[]>('tk_products', []);
   const [cardex, setCardex] = useLS<CardexEntry[]>('tk_cardex', []);
   const [invoices, setInvoices] = useLS<Invoice[]>('tk_invoices', []);
@@ -285,7 +290,7 @@ export default function App() {
 
     const filtered = people.filter(p => !p.isDeleted &&
       (filter === 'all' || p.type === filter) &&
-      (groupFilter === 'all' || p.groupId === groupFilter) &&
+      (groupFilter === 'all' || p.customerTypeId === groupFilter) &&
       (!search || p.name.includes(search) || p.mobile?.includes(search) || p.nationalId?.includes(search))
     );
 
@@ -356,7 +361,7 @@ export default function App() {
                 <input type="color" value={newGroupColor} onChange={e=>setNewGroupColor(e.target.value)} className="w-16 h-10 bg-slate-700/50 border border-slate-600 rounded-xl cursor-pointer" />
                 <button onClick={()=>{
                   if(!newGroupName) return;
-                  setPersonGroups([...personGroups, { id: generateId(), name: newGroupName, color: newGroupColor }]);
+                  setCustomerTypes([...customerTypes, { id: generateId(), name: newGroupName, icon: '👤', color: newGroupColor }]);
                   setNewGroupName(''); setNewGroupColor('#3b82f6');
                 }} className="px-4 bg-violet-600 hover:bg-violet-700 text-white rounded-xl">➕ افزودن</button>
               </div>
@@ -364,11 +369,11 @@ export default function App() {
             
             {/* لیست گروه‌ها */}
             <div className="space-y-2">
-              <h4 className="text-slate-300 text-sm font-bold mb-2">📋 لیست گروه‌ها ({personGroups.length})</h4>
-              {personGroups.length === 0 ? (
+              <h4 className="text-slate-300 text-sm font-bold mb-2">📋 لیست نوع‌های مشتری ({customerTypes.length})</h4>
+              {customerTypes.length === 0 ? (
                 <p className="text-slate-500 text-center py-4">هیچ گروهی تعریف نشده است</p>
               ) : (
-                personGroups.map(g => (
+                customerTypes.map((g: CustomerType) => (
                   <div key={g.id} className="bg-slate-700/30 rounded-xl p-3">
                     {editingGroupId === g.id ? (
                       // حالت ویرایش
@@ -388,7 +393,7 @@ export default function App() {
                         <button 
                           onClick={()=>{
                             if(!editGroupName) return;
-                            setPersonGroups(personGroups.map(x => x.id === g.id ? {...x, name: editGroupName, color: editGroupColor} : x));
+                            setCustomerTypes(customerTypes.map((x: CustomerType) => x.id === g.id ? {...x, name: editGroupName, color: editGroupColor} : x));
                             setEditingGroupId(null);
                           }} 
                           className="px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg"
@@ -423,8 +428,8 @@ export default function App() {
                           <button 
                             onClick={()=>{
                               if(confirm(`حذف گروه "${g.name}"؟\nاشخاص این گروه بدون گروه خواهند شد.`)){
-                                setPersonGroups(personGroups.filter(x=>x.id!==g.id));
-                                setPeople(people.map(p=>p.groupId===g.id?{...p,groupId:undefined}:p));
+                                setCustomerTypes(customerTypes.filter((x: CustomerType)=>x.id!==g.id));
+                                setPeople(people.map(p=>p.customerTypeId===g.id?{...p,customerTypeId:undefined}:p));
                               }
                             }} 
                             className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm"
@@ -492,9 +497,9 @@ export default function App() {
                 placeholder="نام و نام خانوادگی *" 
                 className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white md:col-span-2" 
               />
-              <select value={form.groupId||''} onChange={e=>setForm({...form,groupId:e.target.value||undefined})} className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white">
-                <option value="">بدون گروه</option>
-                {personGroups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}
+              <select value={form.customerTypeId||''} onChange={e=>setForm({...form,customerTypeId:e.target.value||undefined})} className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white">
+                <option value="">بدون نوع</option>
+                {customerTypes.map((g: CustomerType)=><option key={g.id} value={g.id}>{g.icon} {g.name}</option>)}
               </select>
               <input value={form.mobile||''} onChange={e=>setForm({...form,mobile:e.target.value})} placeholder="موبایل *" className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
               <input value={form.phone||''} onChange={e=>setForm({...form,phone:e.target.value})} placeholder="تلفن" className="bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
@@ -687,9 +692,9 @@ export default function App() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-white font-medium">{p.name} {p.familyName||''}</span>
                       <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">{typeLabel[p.type]}</span>
-                      {p.groupId && (() => {
-                        const g = personGroups.find(x => x.id === p.groupId);
-                        return g ? <span className="text-xs px-2 py-0.5 rounded-full" style={{backgroundColor: g.color+'30', color: g.color}}>{g.name}</span> : null;
+                      {p.customerTypeId && (() => {
+                        const g = customerTypes.find((x: CustomerType) => x.id === p.customerTypeId);
+                        return g ? <span className="text-xs px-2 py-0.5 rounded-full" style={{backgroundColor: g.color+'30', color: g.color}}>{g.icon} {g.name}</span> : null;
                       })()}
                       {(p.documents?.length || 0) > 0 && <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400">📎 {p.documents.length}</span>}
                       {p.guarantor && <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400">🛡️ ضامن</span>}
@@ -1859,7 +1864,7 @@ export default function App() {
         <div className="bg-slate-800/60 rounded-2xl p-6 border border-slate-700/50 space-y-4">
           <PersonPicker
             people={people}
-            personGroups={personGroups}
+            customerTypes={customerTypes}
             value={personId}
             onChange={setPersonId}
             onAddPerson={handleAddPerson}
@@ -2103,7 +2108,7 @@ export default function App() {
         <div className="bg-slate-800/60 rounded-2xl p-6 border border-slate-700/50 space-y-4">
           <PersonPicker
             people={people}
-            personGroups={personGroups}
+            customerTypes={customerTypes}
             value={personId}
             onChange={setPersonId}
             onAddPerson={handleAddPerson}

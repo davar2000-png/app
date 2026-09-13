@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import type { Person, PersonGroup } from '../types';
+import type { Person, CustomerType } from '../types';
 import { generateId, formatNumber, getTodayDate } from '../utils';
 
 interface PersonPickerProps {
   people: Person[];
-  personGroups: PersonGroup[];
+  customerTypes: CustomerType[];
   value: string;
   onChange: (personId: string) => void;
   onAddPerson: (person: Person) => void;
@@ -14,7 +14,7 @@ interface PersonPickerProps {
 
 export default function PersonPicker({
   people,
-  personGroups,
+  customerTypes,
   value,
   onChange,
   onAddPerson,
@@ -98,7 +98,7 @@ export default function PersonPicker({
   };
 
   const balance = selectedPerson ? calculateBalance(selectedPerson.id) : 0;
-  const group = selectedPerson?.groupId ? personGroups.find(g => g.id === selectedPerson.groupId) : null;
+  const group = selectedPerson?.customerTypeId ? customerTypes.find(g => g.id === selectedPerson.customerTypeId) : null;
 
   return (
     <div className="space-y-2">
@@ -154,7 +154,7 @@ export default function PersonPicker({
         {showDropdown && filteredPeople.length > 0 && (
           <div className="absolute z-10 w-full mt-1 bg-slate-800 border border-slate-600 rounded-xl shadow-lg max-h-64 overflow-y-auto">
             {filteredPeople.map(person => {
-              const personGroup = person.groupId ? personGroups.find(g => g.id === person.groupId) : null;
+              const personGroup = person.customerTypeId ? customerTypes.find(g => g.id === person.customerTypeId) : null;
               return (
                 <div
                   key={person.id}

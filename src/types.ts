@@ -1,6 +1,7 @@
-export interface PersonGroup {
+export interface CustomerType {
   id: string;
   name: string;
+  icon: string;
   color: string;
 }
 
@@ -28,7 +29,7 @@ export interface Guarantor {
 export interface Person {
   id: string;
   type: 'customer' | 'supplier' | 'guarantor' | 'employee' | 'other';
-  groupId?: string;
+  customerTypeId?: string;
   name: string;
   familyName?: string;
   nationalId?: string;
