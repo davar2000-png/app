@@ -4,6 +4,14 @@ export interface PersonGroup {
   color: string;
 }
 
+export interface PersonDocument {
+  id: string;
+  name: string;
+  type: string;
+  data: string;
+  date: string;
+}
+
 export interface Guarantor {
   id: string;
   name: string;
@@ -40,14 +48,6 @@ export interface Person {
   createdAt: string;
 }
 
-export interface PersonDocument {
-  id: string;
-  name: string;
-  type: string;
-  data: string;
-  date: string;
-}
-
 export interface ProductCategory {
   id: string;
   name: string;
@@ -82,31 +82,15 @@ export interface Product {
   color?: string;
   ram?: string;
   storage?: string;
+  serialNumber?: string;
   buyPrice: number;
   sellPrice: number;
   stock: number;
   minStock: number;
   reorderPoint: number;
   allowNegativeStock: boolean;
-  hasSerial: boolean;
   description?: string;
   isDeleted: boolean;
-  createdAt: string;
-}
-
-export interface SerialItem {
-  id: string;
-  productId: string;
-  serialNumber: string;
-  imei1?: string;
-  imei2?: string;
-  purchasePrice: number;
-  purchaseInvoiceId?: string;
-  status: 'in_stock' | 'sold' | 'returned';
-  saleInvoiceId?: string;
-  soldDate?: string;
-  soldPrice?: number;
-  profit?: number;
   createdAt: string;
 }
 
@@ -127,9 +111,8 @@ export interface CardexEntry {
 export interface InvoiceItem {
   id: string;
   productId: string;
-  productItemId?: string;
-  serialNumber?: string;
   productName: string;
+  serialNumber?: string;
   quantity: number;
   unitPrice: number;
   buyPrice?: number;
@@ -204,7 +187,6 @@ export interface AuditLog {
 export type Section =
   | 'dashboard'
   | 'inventory'
-  | 'serials'
   | 'cardex'
   | 'people'
   | 'purchase'
