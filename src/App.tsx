@@ -25,11 +25,7 @@ function useLS<T>(key: string, init: T): [T, React.Dispatch<React.SetStateAction
 
 export default function App() {
   const [people, setPeople] = useLS<Person[]>('tk_people', []);
-  const [personGroups, setPersonGroups] = useLS<PersonGroup[]>('tk_person_groups', [
-    { id: 'vip', name: 'مشتریان VIP', color: '#f59e0b' },
-    { id: 'regular', name: 'مشتریان عادی', color: '#3b82f6' },
-    { id: 'wholesale', name: 'عمده‌فروشان', color: '#10b981' },
-  ]);
+  const [personGroups, setPersonGroups] = useLS<PersonGroup[]>('tk_person_groups', []);
   const [products, setProducts] = useLS<Product[]>('tk_products', []);
   const [cardex, setCardex] = useLS<CardexEntry[]>('tk_cardex', []);
   const [invoices, setInvoices] = useLS<Invoice[]>('tk_invoices', []);
