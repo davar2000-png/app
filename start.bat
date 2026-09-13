@@ -12,18 +12,36 @@ echo.
 
 REM Check if Node.js is installed
 node --version >nul 2>&1
-if %errorlevel% equ 0 (
-    echo [OK] Node.js found
+if %errorlevel% neq 0 (
+    echo [ERROR] Node.js not found!
     echo.
-    echo Starting server...
+    echo Please install Node.js from:
+    echo https://nodejs.org/
     echo.
-    node server.js
-    goto :eof
+    pause
+    exit /b
 )
 
-echo [ERROR] Node.js not found!
+echo [OK] Node.js found
 echo.
-echo Please install Node.js from:
-echo https://nodejs.org/
+
+REM Check if dist folder exists
+if not exist "dist" (
+    echo [INFO] dist folder not found. Building project...
+    echo.
+    echo Running: npm run build
+    echo.
+    call npm run build
+    echo.
+    if not exist "dist" (
+        echo [ERROR] Build failed!
+        pause
+        exit /b
+    )
+    echo [OK] Build completed successfully!
+    echo.
+)
+
+echo [INFO] Starting server...
 echo.
-pause
+node server.js
