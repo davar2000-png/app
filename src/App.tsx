@@ -1630,12 +1630,544 @@ export default function App() {
     );
   };
 
+  // Purchase Invoice Section
+  const PurchaseInvoiceSection = () => {
+    const [personId, setPersonId] = useState('');
+    const [items, setItems] = useState<InvoiceItem[]>([]);
+    const [discount, setDiscount] = useState(0);
+    const [paymentRows, setPaymentRows] = useState<PaymentRow[]>([]);
+    const [description, setDescription] = useState('');
+
+    const total = items.reduce((s, i) => s + i.total, 0);
+    const payable = total - discount;
+
+    const addToItems = (product: Product) => {
+      const existing = items.find(i => i.productId === product.id);
+      if (existing) {
+        setItems(items.map(i => i.productId === product.id ? { ...i, quantity: i.quantity + 1, total: (i.quantity + 1) * i.unitPrice } : i));
+      } else {
+        setItems([...items, {
+          id: generateId(),
+          productId: product.id,
+          productName: getProductName(product),
+          serialNumber: product.serialNumber,
+          quantity: 1,
+          unitPrice: product.buyPrice,
+          buyPrice: product.buyPrice,
+          total: product.buyPrice,
+        }]);
+      }
+    };
+
+    const updateItem = (id: string, field: string, value: number) => {
+      setItems(items.map(i => {
+        if (i.id === id) {
+          if (field === 'quantity') return { ...i, quantity: value, total: value * i.unitPrice };
+          if (field === 'unitPrice') return { ...i, unitPrice: value, total: i.quantity * value };
+        }
+        return i;
+      }));
+    };
+
+    const removeItem = (id: string) => setItems(items.filter(i => i.id !== id));
+
+    const handleAddPerson = (person: Person) => {
+      setPeople(prev => [person, ...prev]);
+    };
+
+    const handleAddProduct = (product: Product) => {
+      setProducts(prev => [product, ...prev]);
+    };
+
+    const save = () => {
+      if (!personId || items.length === 0) return alert('شخص و اقلام را انتخاب کنید');
+      
+      const invoice: Invoice = {
+        id: generateId(),
+        invoiceNumber: generateInvoiceNumber('purchase'),
+        type: 'purchase',
+        personId,
+        items,
+        total: payable,
+        discount,
+        paid: paymentRows.reduce((s, r) => s + r.amount, 0),
+        remaining: payable - paymentRows.reduce((s, r) => s + r.amount, 0),
+        paymentType: paymentRows.length > 1 ? 'mixed' : paymentRows[0]?.method === 'cash' ? 'cash' : 'cheque',
+        status: 'active',
+        description,
+        date: getTodayDate(),
+        createdAt: new Date().toISOString(),
+      };
+
+      setInvoices(prev => [invoice, ...prev]);
+
+      // ذخیره پرداخت‌ها
+      paymentRows.forEach(row => {
+        const payment: Payment = {
+          id: generateId(),
+          kind: 'purchase',
+          invoiceId: invoice.id,
+          personId,
+          amount: row.amount,
+          method: row.method as any,
+          date: getTodayDate(),
+          note: row.note,
+          createdAt: new Date().toISOString(),
+        };
+        setPayments(prev => [payment, ...prev]);
+
+        // ذخیره چک
+        if (row.method === 'check' && row.checkNumber) {
+          const cheque: Cheque = {
+            id: generateId(),
+            chequeNumber: row.checkNumber,
+            bankName: row.bankName || '',
+            amount: row.amount,
+            dueDate: row.dueDate || getTodayDate(),
+            type: 'paid',
+            status: 'pending',
+            relatedInvoiceId: invoice.id,
+            relatedPersonId: personId,
+            isDeleted: false,
+            createdAt: new Date().toISOString(),
+          };
+          setCheques(prev => [cheque, ...prev]);
+        }
+      });
+
+      // به‌روزرسانی موجودی
+      items.forEach(item => {
+        setProducts(prev => prev.map(p => p.id === item.productId ? { ...p, stock: p.stock + item.quantity } : p));
+      });
+
+      log('CREATE', 'invoice', invoice.id, `فاکتور خرید ${formatNumber(payable)}`);
+      alert(`✅ فاکتور خرید ${invoice.invoiceNumber} ثبت شد`);
+      
+      // ریست فرم
+      setPersonId(''); setItems([]); setDiscount(0); setPaymentRows([]); setDescription('');
+    };
+
+    return (
+      <div className="space-y-4">
+        <h2 className="text-2xl font-bold">🛒 فاکتور خرید</h2>
+        
+        <div className="bg-slate-800/60 rounded-2xl p-6 border border-slate-700/50 space-y-4">
+          <PersonPicker
+            people={people}
+            personGroups={personGroups}
+            value={personId}
+            onChange={setPersonId}
+            onAddPerson={handleAddPerson}
+            type="supplier"
+            label="فروشنده"
+          />
+
+          <div>
+            <label className="text-slate-300 text-sm font-bold mb-2 block">اقلام فاکتور</label>
+            <ProductPicker
+              products={products}
+              categories={categories}
+              brands={brands}
+              models={models}
+              colors={colors}
+              onAddProduct={handleAddProduct}
+              onAddToInvoice={addToItems}
+              type="purchase"
+            />
+          </div>
+
+          {items.length > 0 && (
+            <div className="bg-slate-700/30 rounded-xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-700/50">
+                  <tr>
+                    <th className="px-3 py-2 text-right text-slate-300">کالا</th>
+                    <th className="px-3 py-2 text-right text-slate-300">سریال</th>
+                    <th className="px-3 py-2 text-right text-slate-300">تعداد</th>
+                    <th className="px-3 py-2 text-right text-slate-300">قیمت واحد</th>
+                    <th className="px-3 py-2 text-right text-slate-300">جمع</th>
+                    <th className="px-3 py-2 text-right text-slate-300">عملیات</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-700/50">
+                  {items.map(item => (
+                    <tr key={item.id} className="hover:bg-slate-700/20">
+                      <td className="px-3 py-2 text-white">{item.productName}</td>
+                      <td className="px-3 py-2 text-slate-400 text-xs">{item.serialNumber || '-'}</td>
+                      <td className="px-3 py-2">
+                        <input type="number" value={item.quantity} onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))} min="1" className="w-16 bg-slate-700/50 border border-slate-600 rounded px-2 py-1 text-white text-center" />
+                      </td>
+                      <td className="px-3 py-2">
+                        <input type="number" value={item.unitPrice} onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))} className="w-24 bg-slate-700/50 border border-slate-600 rounded px-2 py-1 text-white text-center" />
+                      </td>
+                      <td className="px-3 py-2 text-emerald-400 font-bold">{formatNumber(item.total)}</td>
+                      <td className="px-3 py-2">
+                        <button onClick={() => removeItem(item.id)} className="text-rose-400 hover:text-rose-300">✕</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div className="flex items-center gap-4">
+            <div className="flex-1">
+              <label className="text-slate-300 text-sm mb-1 block">تخفیف (تومان)</label>
+              <input type="number" value={discount} onChange={e => setDiscount(Number(e.target.value))} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+            </div>
+            <div className="text-left">
+              <p className="text-slate-400 text-sm">جمع کل:</p>
+              <p className="text-2xl font-bold text-emerald-400">{formatNumber(total)}</p>
+              <p className="text-slate-400 text-sm">قابل پرداخت:</p>
+              <p className="text-2xl font-bold text-white">{formatNumber(payable)}</p>
+            </div>
+          </div>
+
+          <PaymentPanel
+            totalAmount={total}
+            discount={discount}
+            invoiceId=""
+            personId={personId}
+            type="purchase"
+            onPaymentsChange={setPaymentRows}
+          />
+
+          <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="توضیحات" rows={2} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+
+          <button onClick={save} disabled={!personId || items.length === 0} className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-600 text-white font-bold py-3 rounded-xl">💾 ثبت فاکتور خرید</button>
+        </div>
+      </div>
+    );
+  };
+
+  // Sale Invoice Section
+  const SaleInvoiceSection = () => {
+    const [personId, setPersonId] = useState('');
+    const [items, setItems] = useState<InvoiceItem[]>([]);
+    const [discount, setDiscount] = useState(0);
+    const [paymentRows, setPaymentRows] = useState<PaymentRow[]>([]);
+    const [description, setDescription] = useState('');
+
+    const total = items.reduce((s, i) => s + i.total, 0);
+    const payable = total - discount;
+
+    const selectedPerson = people.find(p => p.id === personId);
+    const personBalance = selectedPerson ? (selectedPerson.debtor || 0) - (selectedPerson.creditor || 0) : 0;
+
+    const addToItems = (product: Product) => {
+      if (product.stock <= 0 && !product.allowNegativeStock) {
+        if (!confirm(`⚠️ موجودی ${getProductName(product)} صفر است. ادامه می‌دهید؟`)) return;
+      }
+      const existing = items.find(i => i.productId === product.id);
+      if (existing) {
+        setItems(items.map(i => i.productId === product.id ? { ...i, quantity: i.quantity + 1, total: (i.quantity + 1) * i.unitPrice } : i));
+      } else {
+        setItems([...items, {
+          id: generateId(),
+          productId: product.id,
+          productName: getProductName(product),
+          serialNumber: product.serialNumber,
+          quantity: 1,
+          unitPrice: product.sellPrice,
+          buyPrice: product.buyPrice,
+          total: product.sellPrice,
+          profit: product.sellPrice - product.buyPrice,
+        }]);
+      }
+    };
+
+    const updateItem = (id: string, field: string, value: number) => {
+      setItems(items.map(i => {
+        if (i.id === id) {
+          if (field === 'quantity') return { ...i, quantity: value, total: value * i.unitPrice, profit: (i.unitPrice - (i.buyPrice || 0)) * value };
+          if (field === 'unitPrice') return { ...i, unitPrice: value, total: i.quantity * value, profit: (value - (i.buyPrice || 0)) * i.quantity };
+        }
+        return i;
+      }));
+    };
+
+    const removeItem = (id: string) => setItems(items.filter(i => i.id !== id));
+
+    const handleAddPerson = (person: Person) => {
+      setPeople(prev => [person, ...prev]);
+    };
+
+    const handleAddProduct = (product: Product) => {
+      setProducts(prev => [product, ...prev]);
+    };
+
+    const save = () => {
+      if (!personId || items.length === 0) return alert('شخص و اقلام را انتخاب کنید');
+      
+      const invoice: Invoice = {
+        id: generateId(),
+        invoiceNumber: generateInvoiceNumber('sale'),
+        type: 'sale',
+        personId,
+        items,
+        total: payable,
+        discount,
+        paid: paymentRows.reduce((s, r) => s + r.amount, 0),
+        remaining: payable - paymentRows.reduce((s, r) => s + r.amount, 0),
+        paymentType: paymentRows.length > 1 ? 'mixed' : paymentRows[0]?.method === 'cash' ? 'cash' : 'cheque',
+        status: 'active',
+        description,
+        date: getTodayDate(),
+        createdAt: new Date().toISOString(),
+      };
+
+      setInvoices(prev => [invoice, ...prev]);
+
+      // ذخیره پرداخت‌ها
+      paymentRows.forEach(row => {
+        const payment: Payment = {
+          id: generateId(),
+          kind: 'sale',
+          invoiceId: invoice.id,
+          personId,
+          amount: row.amount,
+          method: row.method as any,
+          date: getTodayDate(),
+          note: row.note,
+          createdAt: new Date().toISOString(),
+        };
+        setPayments(prev => [payment, ...prev]);
+
+        // ذخیره چک
+        if (row.method === 'check' && row.checkNumber) {
+          const cheque: Cheque = {
+            id: generateId(),
+            chequeNumber: row.checkNumber,
+            bankName: row.bankName || '',
+            amount: row.amount,
+            dueDate: row.dueDate || getTodayDate(),
+            type: 'received',
+            status: 'pending',
+            relatedInvoiceId: invoice.id,
+            relatedPersonId: personId,
+            isDeleted: false,
+            createdAt: new Date().toISOString(),
+          };
+          setCheques(prev => [cheque, ...prev]);
+        }
+
+        // ذخیره اقساط
+        if (row.method === 'installment' && row.installmentCount) {
+          const instAmount = Math.round(row.amount / row.installmentCount);
+          const installments: Installment[] = Array.from({ length: row.installmentCount }, (_, i) => {
+            const date = new Date(row.firstDueDate || getTodayDate());
+            date.setMonth(date.getMonth() + i * (row.monthInterval || 1));
+            return {
+              id: generateId(),
+              amount: i === row.installmentCount! - 1 ? row.amount - instAmount * (row.installmentCount! - 1) : instAmount,
+              dueDate: date.toISOString().split('T')[0],
+              paidAmount: 0,
+              status: 'pending' as const,
+            };
+          });
+          invoice.installments = installments;
+        }
+      });
+
+      // به‌روزرسانی موجودی
+      items.forEach(item => {
+        setProducts(prev => prev.map(p => p.id === item.productId ? { ...p, stock: p.stock - item.quantity } : p));
+      });
+
+      log('CREATE', 'invoice', invoice.id, `فاکتور فروش ${formatNumber(payable)}`);
+      alert(`✅ فاکتور فروش ${invoice.invoiceNumber} ثبت شد`);
+      
+      // ریست فرم
+      setPersonId(''); setItems([]); setDiscount(0); setPaymentRows([]); setDescription('');
+    };
+
+    const totalProfit = items.reduce((s, i) => s + (i.profit || 0), 0);
+
+    return (
+      <div className="space-y-4">
+        <h2 className="text-2xl font-bold">💰 فاکتور فروش</h2>
+        
+        {/* مانده زنده مشتری */}
+        {selectedPerson && personBalance > 0 && (
+          <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3">
+            <p className="text-rose-400 font-bold">⚠️ مانده بدهی مشتری: {formatNumber(personBalance)} تومان</p>
+          </div>
+        )}
+
+        <div className="bg-slate-800/60 rounded-2xl p-6 border border-slate-700/50 space-y-4">
+          <PersonPicker
+            people={people}
+            personGroups={personGroups}
+            value={personId}
+            onChange={setPersonId}
+            onAddPerson={handleAddPerson}
+            type="customer"
+            label="مشتری"
+          />
+
+          <div>
+            <label className="text-slate-300 text-sm font-bold mb-2 block">اقلام فاکتور</label>
+            <ProductPicker
+              products={products}
+              categories={categories}
+              brands={brands}
+              models={models}
+              colors={colors}
+              onAddProduct={handleAddProduct}
+              onAddToInvoice={addToItems}
+              type="sale"
+            />
+          </div>
+
+          {items.length > 0 && (
+            <div className="bg-slate-700/30 rounded-xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-700/50">
+                  <tr>
+                    <th className="px-3 py-2 text-right text-slate-300">کالا</th>
+                    <th className="px-3 py-2 text-right text-slate-300">سریال</th>
+                    <th className="px-3 py-2 text-right text-slate-300">تعداد</th>
+                    <th className="px-3 py-2 text-right text-slate-300">قیمت واحد</th>
+                    <th className="px-3 py-2 text-right text-slate-300">سود</th>
+                    <th className="px-3 py-2 text-right text-slate-300">جمع</th>
+                    <th className="px-3 py-2 text-right text-slate-300">عملیات</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-700/50">
+                  {items.map(item => {
+                    const product = products.find(p => p.id === item.productId);
+                    const isPriceBelowCost = item.unitPrice < (item.buyPrice || 0);
+                    const isOverStock = product && item.quantity > product.stock;
+                    return (
+                      <tr key={item.id} className={`hover:bg-slate-700/20 ${isPriceBelowCost ? 'bg-rose-500/10' : ''} ${isOverStock ? 'bg-amber-500/10' : ''}`}>
+                        <td className="px-3 py-2 text-white">{item.productName}</td>
+                        <td className="px-3 py-2 text-slate-400 text-xs">{item.serialNumber || '-'}</td>
+                        <td className="px-3 py-2">
+                          <input type="number" value={item.quantity} onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))} min="1" className={`w-16 bg-slate-700/50 border rounded px-2 py-1 text-white text-center ${isOverStock ? 'border-amber-500' : 'border-slate-600'}`} />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input type="number" value={item.unitPrice} onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))} className={`w-24 bg-slate-700/50 border rounded px-2 py-1 text-white text-center ${isPriceBelowCost ? 'border-rose-500' : 'border-slate-600'}`} />
+                        </td>
+                        <td className="px-3 py-2 text-emerald-400">{formatNumber(item.profit || 0)}</td>
+                        <td className="px-3 py-2 text-emerald-400 font-bold">{formatNumber(item.total)}</td>
+                        <td className="px-3 py-2">
+                          <button onClick={() => removeItem(item.id)} className="text-rose-400 hover:text-rose-300">✕</button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div className="flex items-center gap-4">
+            <div className="flex-1">
+              <label className="text-slate-300 text-sm mb-1 block">تخفیف (تومان)</label>
+              <input type="number" value={discount} onChange={e => setDiscount(Number(e.target.value))} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+            </div>
+            <div className="text-left">
+              <p className="text-slate-400 text-sm">جمع کل:</p>
+              <p className="text-2xl font-bold text-emerald-400">{formatNumber(total)}</p>
+              <p className="text-slate-400 text-sm">سود کل:</p>
+              <p className="text-xl font-bold text-amber-400">{formatNumber(totalProfit)}</p>
+              <p className="text-slate-400 text-sm">قابل پرداخت:</p>
+              <p className="text-2xl font-bold text-white">{formatNumber(payable)}</p>
+            </div>
+          </div>
+
+          <PaymentPanel
+            totalAmount={total}
+            discount={discount}
+            invoiceId=""
+            personId={personId}
+            type="sale"
+            onPaymentsChange={setPaymentRows}
+          />
+
+          <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="توضیحات" rows={2} className="w-full bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+
+          <button onClick={save} disabled={!personId || items.length === 0} className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-600 text-white font-bold py-3 rounded-xl">💾 ثبت فاکتور فروش</button>
+        </div>
+      </div>
+    );
+  };
+
+  // Invoice List Section
+  const InvoiceListSection = () => {
+    const [filter, setFilter] = useState<'all' | 'sale' | 'purchase'>('all');
+    const [search, setSearch] = useState('');
+
+    const filtered = invoices.filter(i => 
+      i.status === 'active' &&
+      (filter === 'all' || i.type === filter) &&
+      (!search || i.invoiceNumber.includes(search) || getPersonName(i.personId).includes(search))
+    ).sort((a, b) => b.date.localeCompare(a.date));
+
+    const getPaymentStatus = (invoice: Invoice) => {
+      if (invoice.remaining === 0) return { label: '✅ تسویه', color: 'bg-emerald-500/20 text-emerald-400' };
+      if (invoice.paid > 0) return { label: '⚠️ جزئی', color: 'bg-amber-500/20 text-amber-400' };
+      return { label: '❌ بدهکار', color: 'bg-rose-500/20 text-rose-400' };
+    };
+
+    return (
+      <div className="space-y-4">
+        <h2 className="text-2xl font-bold">📋 لیست فاکتورها</h2>
+        
+        <div className="flex gap-2 flex-wrap">
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 جستجو (شماره فاکتور، نام شخص)..." className="flex-1 min-w-48 bg-slate-700/50 border border-slate-600 rounded-xl px-3 py-2 text-white" />
+          {(['all', 'sale', 'purchase'] as const).map(f => (
+            <button key={f} onClick={() => setFilter(f)} className={`px-4 py-2 rounded-xl ${filter === f ? 'bg-blue-600 text-white' : 'bg-slate-700/50 text-slate-300'}`}>
+              {f === 'all' ? 'همه' : f === 'sale' ? 'فروش' : 'خرید'}
+            </button>
+          ))}
+        </div>
+
+        <div className="bg-slate-800/60 rounded-2xl border border-slate-700/50 overflow-hidden">
+          <div className="p-4 border-b border-slate-700/50">
+            <span className="text-slate-400 text-sm">{filtered.length} فاکتور</span>
+          </div>
+          <div className="max-h-[600px] overflow-y-auto divide-y divide-slate-700/50">
+            {filtered.map(inv => {
+              const status = getPaymentStatus(inv);
+              return (
+                <div key={inv.id} className="p-4 hover:bg-slate-700/20">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-white font-bold">{inv.invoiceNumber}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${inv.type === 'sale' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                          {inv.type === 'sale' ? 'فروش' : 'خرید'}
+                        </span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${status.color}`}>{status.label}</span>
+                      </div>
+                      <p className="text-slate-300 text-sm">{getPersonName(inv.personId)}</p>
+                      <p className="text-slate-400 text-xs">{jalaliDate(inv.date)} | {inv.items.length} قلم</p>
+                    </div>
+                    <div className="text-left">
+                      <p className="text-emerald-400 font-bold">{formatNumber(inv.total)} تومان</p>
+                      {inv.remaining > 0 && <p className="text-rose-400 text-sm">باقیمانده: {formatNumber(inv.remaining)}</p>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderSection = () => {
     switch (section) {
       case 'dashboard': return <Dashboard />;
       case 'inventory': return <InventorySection />;
       case 'cardex': return <CardexSection />;
       case 'people': return <PeopleSection />;
+      case 'purchase': return <PurchaseInvoiceSection />;
+      case 'sale': return <SaleInvoiceSection />;
+      case 'invoices': return <InvoiceListSection />;
       case 'payments': return <PaymentsSection />;
       case 'returns': return <ReturnsSection />;
       case 'proformas': return <ProformasSection />;
