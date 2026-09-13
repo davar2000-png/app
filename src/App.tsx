@@ -10,6 +10,9 @@ import {
   generateId, formatNumber, formatCurrency, getTodayDate,
   generateInvoiceNumber, generateProductCode, jalaliDate, isOverdue, parseExcelFile
 } from './utils';
+import PersonPicker from './components/PersonPicker';
+import ProductPicker from './components/ProductPicker';
+import PaymentPanel, { PaymentRow } from './components/PaymentPanel';
 
 function useLS<T>(key: string, init: T): [T, React.Dispatch<React.SetStateAction<T>>] {
   const [v, setV] = useState<T>(() => {
