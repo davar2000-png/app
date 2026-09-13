@@ -1,5 +1,44 @@
+```
+# Dependencies
 node_modules/
-.next/
+
+# Prisma
+prisma/migrations/
+prisma/dev.db
+
+# Environment
+.env
+.env.local
+*.env.*
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.swp
+
+# IDE
+.vscode/
+.idea/
+
+# Build outputs
 dist/
 build/
-*.log
+target/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# OS
+.DS_Store
+Thumbs.db
+```
