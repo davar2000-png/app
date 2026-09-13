@@ -493,7 +493,7 @@ export default function App() {
               <input 
                 value={`${form.name || ''} ${form.familyName || ''}`.trim()} 
                 onChange={e => {
-                  const fullName = e.target.value.trim();
+                  const fullName = e.target.value;
                   const parts = fullName.split(' ');
                   const firstName = parts[0] || '';
                   const lastName = parts.slice(1).join(' ') || '';
