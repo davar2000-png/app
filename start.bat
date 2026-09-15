@@ -21,14 +21,29 @@ if %errorlevel% neq 0 (
 echo [OK] Node.js found
 echo.
 
+npm config set fetch-retries 5
+npm config set fetch-retry-mintimeout 20000
+npm config set fetch-retry-maxtimeout 120000
+npm config set fetch-timeout 300000
+
 echo [INFO] Installing dependencies safely...
-call npm install --legacy-peer-deps
-if %errorlevel% neq 0 (
-  echo [ERROR] Dependency installation failed.
+set INSTALL_ATTEMPT=1
+:install_retry
+call npm install --legacy-peer-deps --no-audit --no-fund
+if %errorlevel% equ 0 goto build
+if %INSTALL_ATTEMPT% geq 3 (
+  echo [ERROR] Internet connection kept resetting during download.
+  echo Check your internet or VPN, then run start.bat again. Existing downloads are cached.
   pause
   exit /b 1
 )
+set /a INSTALL_ATTEMPT+=1
+echo [WARN] Download interrupted. Retrying in 5 seconds...
+timeout /t 5 /nobreak >nul
+goto install_retry
 
+:build
+echo.
 echo [INFO] Building Next.js application...
 set DATABASE_URL=file:./prisma/dev.db
 call npm run build
