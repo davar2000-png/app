@@ -1,5 +1,50 @@
+```
+# Dependencies
 node_modules/
+
+# Build outputs
 .next/
 dist/
 build/
+out/
+
+# Environment variables
+.env*
+!.env.example
+
+# Database
+prisma/migrations/
+prisma/dev.db
+
+# Logs
 *.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+.venv/
+.env/
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# Temporary files
+*.tmp
+*.temp
+```

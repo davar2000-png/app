@@ -1,0 +1,7 @@
+'use client';
+import { useRouter } from 'next/navigation';
+const sections = [['محصولات','مدیریت محصولات و سریال‌ها','/products','bg-blue-600'],['فروش','ثبت فاکتور فروش جدید','/sales','bg-green-600'],['خرید','ثبت فاکتور خرید جدید','/purchases','bg-purple-600'],['اقساط','مدیریت قراردادهای اقساطی','/installments','bg-yellow-600'],['چک و سفته','مدیریت چک‌های دریافتنی','/checks','bg-orange-600'],['گزارشات','مشاهده گزارش‌های جامع','/reports','bg-gray-600']];
+export default function DashboardPage(){
+ const router=useRouter();
+ return <div className="min-h-screen bg-gray-50" dir="rtl"><header className="bg-white shadow"><div className="max-w-7xl mx-auto py-6 px-4 flex justify-between items-center"><h1 className="text-3xl font-bold">داشبورد مدیریت</h1><button onClick={()=>router.push('/api/auth/logout')} className="bg-red-600 text-white px-4 py-2 rounded-md">خروج</button></div></header><main className="max-w-7xl mx-auto py-6 px-4"><div className="bg-white rounded-lg shadow p-6"><h2 className="text-xl font-semibold mb-2">خوش آمدید!</h2><p className="text-gray-600 mb-6">سیستم مدیریت فروشگاه موبایل آماده است.</p><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{sections.map(([title,description,href,color])=><div key={href} className="border rounded-lg p-4 hover:shadow-md"><h3 className="font-semibold text-lg mb-2">{title}</h3><p className="text-gray-600 text-sm mb-4">{description}</p><button onClick={()=>router.push(href)} className={`${color} text-white px-4 py-2 rounded w-full`}>باز کردن</button></div>)}</div></div></main></div>;
+}
